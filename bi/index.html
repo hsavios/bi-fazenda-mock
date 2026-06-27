@@ -1,0 +1,68 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BI — Fazenda Boa Esperança Agro</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1><span>BI</span> Fazenda Boa Esperança Agro</h1>
+        <nav>
+            <button class="active" data-section="overview">Visão Geral</button>
+            <button data-section="producao">Produção</button>
+            <button data-section="custos">Custos</button>
+            <button data-section="estoques">Estoques</button>
+            <button data-section="financeiro">Financeiro</button>
+            <button data-section="contabilidade">Contabilidade</button>
+        </nav>
+        <p id="api-status" class="status-bar">Inicializando...</p>
+    </header>
+
+    <main>
+        <section id="section-overview" class="section active">
+            <div class="kpi-grid">
+                <div class="kpi-card"><div class="label">Receita Total</div><div class="value" id="kpi-receita">—</div></div>
+                <div class="kpi-card"><div class="label">Resultado Gerencial</div><div class="value" id="kpi-resultado">—</div></div>
+                <div class="kpi-card"><div class="label">Produtividade Média</div><div class="value" id="kpi-prod">—</div></div>
+                <div class="kpi-card"><div class="label">Culturas Comercializadas</div><div class="value" id="kpi-contratos">—</div></div>
+            </div>
+            <div class="chart-grid">
+                <div class="chart-card"><h3>Receita e Resultado por Cultura</h3><div id="chart-overview-cultura" class="chart"></div></div>
+            </div>
+        </section>
+
+        <section id="section-producao" class="section">
+            <div class="chart-card"><h3>Produtividade por Talhão (top 20)</h3><div id="chart-produtividade" class="chart"></div></div>
+            <div class="table-wrap" id="table-producao"></div>
+        </section>
+
+        <section id="section-custos" class="section">
+            <div class="chart-grid">
+                <div class="chart-card"><h3>Custo por Hectare</h3><div id="chart-custo-ha" class="chart"></div></div>
+            </div>
+            <div class="table-wrap" id="table-custos"></div>
+        </section>
+
+        <section id="section-estoques" class="section">
+            <h3 style="margin-bottom:0.5rem;color:var(--muted)">Estoque de Insumos</h3>
+            <div class="table-wrap" id="table-estoque-ins"></div>
+            <h3 style="margin:1.5rem 0 0.5rem;color:var(--muted)">Estoque de Produção</h3>
+            <div class="table-wrap" id="table-estoque-prod"></div>
+        </section>
+
+        <section id="section-financeiro" class="section">
+            <div class="chart-card"><h3>Fluxo de Caixa — Saldo Acumulado</h3><div id="chart-fluxo" class="chart"></div></div>
+        </section>
+
+        <section id="section-contabilidade" class="section">
+            <h3 style="margin-bottom:0.5rem;color:var(--muted)">DRE Gerencial</h3>
+            <div class="table-wrap" id="table-dre"></div>
+        </section>
+    </main>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
