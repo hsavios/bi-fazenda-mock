@@ -1,6 +1,6 @@
 ﻿# Deploy validado — agro_fazenda_mock
 
-Registro do deploy manual realizado na VPS `srv1535465`.
+Registro dos deploys na VPS `srv1535465`.
 
 ## Ambiente
 
@@ -10,59 +10,83 @@ Registro do deploy manual realizado na VPS `srv1535465`.
 | Usuário Linux | `helio` |
 | Pasta do projeto | `/home/helio/projects/agro-fazenda-mock` |
 | Container PostgreSQL | `postgres` (imagem `postgres:16`) |
-| Porta | `127.0.0.1:5432` |
+| Porta PostgreSQL | `127.0.0.1:5432` |
 
 ## Banco provisionado
 
 | Item | Valor |
 |------|-------|
 | Banco | `agro_fazenda_mock` |
-| Usuário | `agro_mock_user` |
+| Usuário app | `agro_mock_user` |
+| Role readonly BI | `agro_mock_readonly` |
 | Schema | `agro` |
 | Credenciais | `~/.secrets/agro_fazenda_mock.env` (chmod 600) |
 
-## Validação (2026-07-02)
+## Validação do banco (2026-07-02)
 
 | Métrica | Resultado |
 |---------|-----------|
-| Tabelas | 60 |
-| Views | 7 |
+| Tabelas | 69 |
+| Views KPI | 14 |
 | Lançamentos desbalanceados | 0 |
 
-### Views implantadas
+### Views KPI
 
-- `v_area_safra_cultura`
-- `v_balancete_periodo`
-- `v_custo_talhao`
-- `v_estoque_insumos`
-- `v_estoque_produtos`
-- `v_horas_equipamento_safra`
-- `v_resultado_safra_cultura`
+- `vw_custo_hectare_cultura_safra`
+- `vw_custo_saca_cultura_safra`
+- `vw_resultado_gerencial_cultura`
+- `vw_resultado_talhao`
+- `vw_estoque_insumos_atual`
+- `vw_estoque_producao_atual`
+- `vw_uso_maquinas_safra`
+- `vw_horas_mao_obra_safra`
+- `vw_fluxo_caixa_realizado`
+- `vw_balancete_contabil`
+- `vw_dre_gerencial`
+- `vw_margem_bruta_cultura`
+- `vw_produtividade_talhao`
+- `vw_comercializacao_cultura`
 
-### Contabilidade
+## BI / API readonly
 
-Tabelas: `agro.lancamento_contabil`, `agro.lancamento_contabil_item`
+> Preencher após `./scripts/deploy_bi_vps.sh` na VPS.
 
-## Log de validação
+| Item | Valor esperado |
+|------|----------------|
+| Dashboard | http://127.0.0.1:8088 |
+| PostgREST | http://127.0.0.1:3010 |
+| API via nginx | http://127.0.0.1:8088/api/ |
+| Containers | `fazenda-mock-postgrest`, `fazenda-mock-bi-nginx` |
+| Bind | somente `127.0.0.1` (não expõe em `0.0.0.0`) |
+| Porta 3000 | **não usada** (evita conflito com `gesto-app-frontend-1`) |
 
-```
-logs/validacao_agro_fazenda_mock_20260702_073225.log
-```
-
-## Comandos usados no deploy manual
+### Comando de deploy BI (VPS)
 
 ```bash
-source ~/.secrets/agro_fazenda_mock.env
-
-cat database/agro_fazenda_mock/agro_fazenda_mock_full.sql | docker exec -i -e PGPASSWORD="$AGRO_PASS" postgres \
-  psql -U "$AGRO_USER" -d "$AGRO_DB" -v ON_ERROR_STOP=1
+ss -tlnp | grep -E '3000|3010|8088|8090' || true
+BI_PGRST_PORT=3010 BI_NGINX_PORT=8088 ./scripts/deploy_bi_vps.sh
+./scripts/validate_bi_vps.sh
 ```
 
-## Próximo deploy automatizado
+Se `8088` estiver ocupada:
 
 ```bash
-./scripts/deploy_agro_fazenda_mock_vps.sh --yes
+BI_PGRST_PORT=3010 BI_NGINX_PORT=8090 ./scripts/deploy_bi_vps.sh
+```
+
+## Logs
+
+| Tipo | Padrão |
+|------|--------|
+| Banco | `logs/validacao_agro_fazenda_mock_*.log` |
+| BI | `logs/validacao_bi_*.log` |
+| Deploy BI | saída de `deploy_bi_vps.sh` |
+
+## Comandos úteis
+
+```bash
 ./scripts/validate_agro_fazenda_mock.sh
+./scripts/validate_bi_vps.sh
+./scripts/connect_agro_fazenda_mock.sh
+docker compose -f docker-compose.bi.yml down   # parar BI
 ```
-
-> **Nota:** O repositório versionado pode evoluir (ex.: 69 tabelas e 14 views). Após sincronizar SQLs e rodar novo deploy, atualize este arquivo com as contagens validadas.

@@ -13,7 +13,7 @@ ENV_FILE="$PROJECT_ROOT/.env.bi"
 COMPOSE_FILE="$PROJECT_ROOT/docker-compose.bi.yml"
 COMPOSE_OVERRIDE="$PROJECT_ROOT/docker-compose.bi.override.yml"
 PG_CONTAINER="${POSTGRES_CONTAINER:-postgres}"
-BI_PGRST_PORT="${BI_PGRST_PORT:-3000}"
+BI_PGRST_PORT="${BI_PGRST_PORT:-3010}"
 BI_NGINX_PORT="${BI_NGINX_PORT:-8088}"
 
 usage() {
@@ -32,13 +32,16 @@ Opções:
   --help              Exibe esta ajuda
 
 Variáveis de ambiente:
-  BI_PGRST_PORT       Porta do PostgREST no host (default: 3000)
+  BI_PGRST_PORT       Porta do PostgREST no host (default: 3010)
   BI_NGINX_PORT       Porta do nginx no host (default: 8088)
   POSTGRES_CONTAINER  Nome do container PostgreSQL (default: postgres)
 
-Acesso após deploy:
+Acesso após deploy (portas padrão):
   Dashboard: http://127.0.0.1:8088
-  PostgREST: http://127.0.0.1:3000
+  PostgREST: http://127.0.0.1:3010
+
+Na VPS, se 3000 estiver ocupada (gesto-app), use as portas padrão ou:
+  BI_PGRST_PORT=3010 BI_NGINX_PORT=8088 ./scripts/deploy_bi_vps.sh
 EOF
 }
 
@@ -133,6 +136,14 @@ detect_postgres_connection
 
 check_port_free "$BI_PGRST_PORT" "PostgREST" || exit 1
 check_port_free "$BI_NGINX_PORT" "nginx BI" || exit 1
+
+if ss -tln 2>/dev/null | grep -q ':3000 '; then
+    if [[ "$BI_PGRST_PORT" == "3000" ]]; then
+        log "AVISO: porta 3000 ocupada (ex.: gesto-app-frontend-1). Use BI_PGRST_PORT=3010." >&2
+        exit 1
+    fi
+    log "AVISO: porta 3000 ocupada por outro serviço — BI usará ${BI_PGRST_PORT}."
+fi
 
 ENCODED_PASS=$(urlencode "$AGRO_PASS")
 PGRST_DB_URI="postgres://${AGRO_USER}:${ENCODED_PASS}@${PGRST_DB_HOST}:${PGRST_DB_PORT}/${AGRO_DB}"

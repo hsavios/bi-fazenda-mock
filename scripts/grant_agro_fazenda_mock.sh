@@ -36,10 +36,26 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA agro
   GRANT USAGE, SELECT ON SEQUENCES TO $APP_USER;
 ALTER ROLE $APP_USER SET search_path TO agro, public;
 DO \$\$
+DECLARE
+  obj record;
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'agro_mock_readonly') THEN
     GRANT USAGE ON SCHEMA agro TO agro_mock_readonly;
-    GRANT SELECT ON ALL TABLES IN SCHEMA agro TO agro_mock_readonly;
+    -- Revoga acesso a tabelas base; BI expõe somente views via PostgREST
+    FOR obj IN
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'agro' AND table_type = 'BASE TABLE'
+    LOOP
+      EXECUTE format('REVOKE ALL ON agro.%I FROM agro_mock_readonly', obj.table_name);
+    END LOOP;
+    FOR obj IN
+      SELECT table_name
+      FROM information_schema.views
+      WHERE table_schema = 'agro'
+    LOOP
+      EXECUTE format('GRANT SELECT ON agro.%I TO agro_mock_readonly', obj.table_name);
+    END LOOP;
     GRANT agro_mock_readonly TO $APP_USER;
   END IF;
 END \$\$;

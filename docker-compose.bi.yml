@@ -1,6 +1,7 @@
 ﻿# Dashboard BI — Fazenda Mock
 # Stack: PostgREST + nginx (HTML5/CSS/JS)
-# Portas configuráveis via .env.bi: BI_PGRST_PORT (default 3000), BI_NGINX_PORT (default 8088)
+# Portas padrão VPS-safe (3000 costuma estar ocupada pelo gesto-app-frontend-1)
+# Override via .env.bi: BI_PGRST_PORT (default 3010), BI_NGINX_PORT (default 8088)
 
 services:
   postgrest:
@@ -11,9 +12,9 @@ services:
       PGRST_DB_URI: ${PGRST_DB_URI}
       PGRST_DB_SCHEMAS: agro
       PGRST_DB_ANON_ROLE: agro_mock_readonly
-      PGRST_OPENAPI_SERVER_PROXY_URI: http://127.0.0.1:${BI_PGRST_PORT:-3000}
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://127.0.0.1:${BI_PGRST_PORT:-3010}
     ports:
-      - "127.0.0.1:${BI_PGRST_PORT:-3000}:3000"
+      - "127.0.0.1:${BI_PGRST_PORT:-3010}:3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

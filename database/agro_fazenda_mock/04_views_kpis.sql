@@ -1,4 +1,4 @@
--- 04_views_kpis.sql — views analíticas para BI
+﻿-- 04_views_kpis.sql — views analíticas para BI
 SET search_path TO agro, public;
 
 -- 1. Custo por hectare por cultura e safra
@@ -261,7 +261,26 @@ BEGIN
 END $$;
 
 GRANT USAGE ON SCHEMA agro TO agro_mock_readonly;
-GRANT SELECT ON ALL TABLES IN SCHEMA agro TO agro_mock_readonly;
+-- Somente views KPI (não expor tabelas operacionais via API readonly)
+DO $$
+DECLARE
+  obj record;
+BEGIN
+  FOR obj IN
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'agro' AND table_type = 'BASE TABLE'
+  LOOP
+    EXECUTE format('REVOKE ALL ON agro.%I FROM agro_mock_readonly', obj.table_name);
+  END LOOP;
+  FOR obj IN
+    SELECT table_name
+    FROM information_schema.views
+    WHERE table_schema = 'agro'
+  LOOP
+    EXECUTE format('GRANT SELECT ON agro.%I TO agro_mock_readonly', obj.table_name);
+  END LOOP;
+END $$;
 ALTER DEFAULT PRIVILEGES IN SCHEMA agro GRANT SELECT ON TABLES TO agro_mock_readonly;
 
 -- Nota: GRANT agro_mock_readonly TO agro_mock_user é feito no script de deploy

@@ -97,10 +97,14 @@ Requisitos: Docker com container `postgres` rodando.
 ### 6. Dashboard BI (opcional)
 
 ```bash
-./scripts/deploy_bi_vps.sh
+ss -tlnp | grep -E '3000|3010|8088|8090' || true
+BI_PGRST_PORT=3010 BI_NGINX_PORT=8088 ./scripts/deploy_bi_vps.sh
+./scripts/validate_bi_vps.sh
 ```
 
-Acesse: http://127.0.0.1:8088 (ou túnel SSH a partir do seu PC)
+Acesse: http://127.0.0.1:8088 (PostgREST em :3010 — **não usa :3000**)
+
+Túnel SSH a partir do seu PC: `ssh -L 8088:127.0.0.1:8088 helio@srv1535465`
 
 ---
 
