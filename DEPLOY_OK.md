@@ -11,6 +11,7 @@ Registro dos deploys na VPS `srv1535465`.
 | Pasta do projeto | `/home/helio/projects/agro-fazenda-mock` |
 | Container PostgreSQL | `postgres` (imagem `postgres:16`) |
 | Porta PostgreSQL | `127.0.0.1:5432` |
+| Rede Docker PostgreSQL | `heliosavio_net` |
 
 ## Banco provisionado
 
@@ -29,6 +30,7 @@ Registro dos deploys na VPS `srv1535465`.
 | Tabelas | 69 |
 | Views KPI | 14 |
 | Lançamentos desbalanceados | 0 |
+| Commit Git | `bc4d0d5` |
 
 ### Views KPI
 
@@ -47,20 +49,23 @@ Registro dos deploys na VPS `srv1535465`.
 - `vw_produtividade_talhao`
 - `vw_comercializacao_cultura`
 
-## BI / API readonly
+## BI / API readonly (2026-07-02)
 
-> Preencher após `./scripts/deploy_bi_vps.sh` na VPS.
-
-| Item | Valor esperado |
-|------|----------------|
+| Item | Resultado |
+|------|-----------|
+| Status | **Ativo e validado** |
 | Dashboard | http://127.0.0.1:8088 |
 | PostgREST | http://127.0.0.1:3010 |
 | API via nginx | http://127.0.0.1:8088/api/ |
 | Containers | `fazenda-mock-postgrest`, `fazenda-mock-bi-nginx` |
-| Bind | somente `127.0.0.1` (não expõe em `0.0.0.0`) |
-| Porta 3000 | **não usada** (evita conflito com `gesto-app-frontend-1`) |
+| Bind | somente `127.0.0.1` |
+| Porta 3000 | **não usada** (`gesto-app-frontend-1` intacto) |
+| Conexão PostgREST → PG | rede `heliosavio_net` → `postgres:5432` |
+| Views KPI via API | 14/14 acessíveis |
+| Readonly SELECT em views | OK |
+| Readonly INSERT em tabelas | bloqueado |
 
-### Comando de deploy BI (VPS)
+### Comando de deploy BI usado
 
 ```bash
 ss -tlnp | grep -E '3000|3010|8088|8090' || true
@@ -68,19 +73,26 @@ BI_PGRST_PORT=3010 BI_NGINX_PORT=8088 ./scripts/deploy_bi_vps.sh
 ./scripts/validate_bi_vps.sh
 ```
 
-Se `8088` estiver ocupada:
+### Validação manual confirmada
 
 ```bash
-BI_PGRST_PORT=3010 BI_NGINX_PORT=8090 ./scripts/deploy_bi_vps.sh
+curl -i http://127.0.0.1:8088/                                          # HTTP 200
+curl -s "http://127.0.0.1:8088/api/vw_dre_gerencial?limit=1" | head     # JSON OK
+```
+
+### Túnel SSH (acesso do PC local)
+
+```bash
+ssh -L 8088:127.0.0.1:8088 helio@srv1535465
+# abrir http://127.0.0.1:8088 no navegador
 ```
 
 ## Logs
 
-| Tipo | Padrão |
-|------|--------|
+| Tipo | Arquivo |
+|------|---------|
 | Banco | `logs/validacao_agro_fazenda_mock_*.log` |
-| BI | `logs/validacao_bi_*.log` |
-| Deploy BI | saída de `deploy_bi_vps.sh` |
+| BI | `logs/validacao_bi_20260702_084944.log` |
 
 ## Comandos úteis
 
@@ -88,5 +100,5 @@ BI_PGRST_PORT=3010 BI_NGINX_PORT=8090 ./scripts/deploy_bi_vps.sh
 ./scripts/validate_agro_fazenda_mock.sh
 ./scripts/validate_bi_vps.sh
 ./scripts/connect_agro_fazenda_mock.sh
-docker compose -f docker-compose.bi.yml down   # parar BI
+docker compose -f docker-compose.bi.yml -f docker-compose.bi.override.yml down   # parar BI
 ```
