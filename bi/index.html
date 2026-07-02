@@ -33,13 +33,14 @@
         </nav>
 
         <main class="app-main" id="app-main">
-            <div id="loading-state" class="state-panel" aria-live="polite">
+            <div id="loading-state" class="state-overlay" aria-live="polite">
                 <div class="spinner" aria-hidden="true"></div>
-                <p>Carregando indicadores...</p>
+                <p id="loading-text">Carregando indicadores...</p>
             </div>
 
-            <div id="error-state" class="state-panel hidden" role="alert">
-                <p>Não foi possível carregar os indicadores. Tente novamente.</p>
+            <div id="error-state" class="state-overlay hidden" role="alert">
+                <p id="error-text">Não foi possível carregar os indicadores. Tente novamente.</p>
+                <button type="button" class="btn-retry" id="btn-retry">Recarregar</button>
             </div>
 
             <div id="app-views" class="app-views hidden">

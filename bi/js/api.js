@@ -2,13 +2,25 @@
  * Cliente de dados — caminhos relativos via nginx (/api → PostgREST interno)
  */
 const API_BASE = '/api';
+const FETCH_TIMEOUT_MS = 25000;
 
 async function fetchView(viewName, params = {}) {
     const url = new URL(`${API_BASE}/${viewName}`, window.location.origin);
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error(`Não foi possível carregar ${viewName}`);
-    return res.json();
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    try {
+        const res = await fetch(url.toString(), {
+            headers: { Accept: 'application/json' },
+            signal: controller.signal
+        });
+        if (!res.ok) throw new Error(`${viewName} [HTTP ${res.status}]`);
+        return res.json();
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 function formatNumber(n, decimals = 0) {

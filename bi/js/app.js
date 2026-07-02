@@ -8,8 +8,12 @@
 } from './api.js';
 
 const charts = {};
+const chartsReady = new Set();
 const TABS = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'operacoes', 'sobre'];
 const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
+
+/** Dados carregados — usados para render lazy dos gráficos */
+let store = {};
 
 function el(id) {
     return document.getElementById(id);
@@ -17,7 +21,7 @@ function el(id) {
 
 function initChart(id) {
     const node = el(id);
-    if (!node) return null;
+    if (!node || typeof echarts === 'undefined') return null;
     if (charts[id]) charts[id].dispose();
     charts[id] = echarts.init(node);
     return charts[id];
@@ -115,7 +119,7 @@ function moneyKpi(label, n, className = '') {
     };
 }
 
-function renderOverview(dre, margem, custoHa, comercial) {
+function renderOverview(dre, margem, custoHa, comercial, drawChart = false) {
     const byCulture = aggregateByCulture(dre);
     const receitaTotal = sumField(byCulture, 'receita_bruta');
     const custoTotal = byCulture.reduce((s, r) => s + Number(r.custos_variaveis || 0) + Number(r.custos_fixos || 0), 0);
@@ -130,6 +134,8 @@ function renderOverview(dre, margem, custoHa, comercial) {
         { label: 'Área total', value: formatNumber(areaTotal, 0) + ' ha' },
         { label: 'Culturas', value: formatNumber(culturas.size || comercial.length) }
     ]);
+
+    if (!drawChart) return;
 
     const chart = initChart('chart-overview');
     if (chart && byCulture.length) {
@@ -212,7 +218,7 @@ function renderCulturas(resultado, margem, produtividade) {
     }).join('');
 }
 
-function renderEstoques(insumos, producao) {
+function renderEstoques(insumos, producao, drawChart = false) {
     const valorInsumos = sumField(insumos, 'valor_estoque');
     const volumeProd = sumField(producao, 'quantidade_atual_sc');
 
@@ -228,6 +234,8 @@ function renderEstoques(insumos, producao) {
         byCulture.set(c, (byCulture.get(c) || 0) + Number(p.quantidade_atual_sc || 0));
     });
     const cultNames = sortCultures([...byCulture.keys()]);
+    if (!drawChart) return;
+
     const chart = initChart('chart-estoque-prod');
     if (chart && cultNames.length) {
         chart.setOption({
@@ -253,7 +261,7 @@ function renderEstoques(insumos, producao) {
     })));
 }
 
-function renderFinanceiro(dre, fluxo) {
+function renderFinanceiro(dre, fluxo, drawChart = false) {
     const byCulture = aggregateByCulture(dre);
     const receita = sumField(byCulture, 'receita_bruta');
     const custos = byCulture.reduce((s, r) => s + Number(r.custos_variaveis || 0), 0);
@@ -267,6 +275,8 @@ function renderFinanceiro(dre, fluxo) {
         moneyKpi('Despesas', despesas),
         moneyKpi('Resultado', resultado, resultadoClass)
     ]);
+
+    if (!drawChart) return;
 
     const chart = initChart('chart-fluxo');
     if (chart && fluxo.length) {
@@ -309,7 +319,7 @@ function renderFinanceiro(dre, fluxo) {
     }));
 }
 
-function renderOperacoes(talhoes, maquinas, maoObra) {
+function renderOperacoes(talhoes, maquinas, maoObra, drawChart = false) {
     renderDataCards('cards-talhao', talhoes
         .sort((a, b) => Number(b.custo_total || 0) - Number(a.custo_total || 0))
         .slice(0, 6)
@@ -325,6 +335,8 @@ function renderOperacoes(talhoes, maquinas, maoObra) {
     const maqSorted = maquinas
         .sort((a, b) => Number(b.horas_totais || 0) - Number(a.horas_totais || 0))
         .slice(0, 8);
+
+    if (!drawChart) return;
 
     const chartMaq = initChart('chart-maquinas');
     if (chartMaq && maqSorted.length) {
@@ -373,6 +385,35 @@ function renderOperacoes(talhoes, maquinas, maoObra) {
     }
 }
 
+function refreshChartsForTab(tabId) {
+    if (chartsReady.has(tabId)) {
+        resizeCharts();
+        return;
+    }
+    try {
+        switch (tabId) {
+            case 'visao-geral':
+                renderOverview(store.dre, store.margem, store.custoHa, store.comercial, true);
+                break;
+            case 'estoques':
+                renderEstoques(store.insumos, store.producao, true);
+                break;
+            case 'financeiro':
+                renderFinanceiro(store.dre, store.fluxo, true);
+                break;
+            case 'operacoes':
+                renderOperacoes(store.talhoes, store.maquinas, store.maoObra, true);
+                break;
+            default:
+                break;
+        }
+        chartsReady.add(tabId);
+        resizeCharts();
+    } catch (err) {
+        console.error('Erro ao renderizar gráficos:', tabId, err);
+    }
+}
+
 function switchTab(tabId, pushHash = true) {
     if (!TABS.includes(tabId)) tabId = 'visao-geral';
 
@@ -391,9 +432,7 @@ function switchTab(tabId, pushHash = true) {
         history.replaceState(null, '', `#${tabId}`);
     }
 
-    requestAnimationFrame(() => {
-        resizeCharts();
-    });
+    requestAnimationFrame(() => refreshChartsForTab(tabId));
 }
 
 function setupTabs() {
@@ -410,46 +449,98 @@ function setupTabs() {
     });
 }
 
-async function loadDashboard() {
+async function fetchAllViews(onProgress) {
+    const tasks = [
+        ['dre', () => fetchView('vw_dre_gerencial')],
+        ['margem', () => fetchView('vw_margem_bruta_cultura')],
+        ['resultado', () => fetchView('vw_resultado_gerencial_cultura')],
+        ['custoHa', () => fetchView('vw_custo_hectare_cultura_safra')],
+        ['comercial', () => fetchView('vw_comercializacao_cultura')],
+        ['produtividade', () => fetchView('vw_produtividade_talhao', { limit: '200' })],
+        ['insumos', () => fetchView('vw_estoque_insumos_atual')],
+        ['producao', () => fetchView('vw_estoque_producao_atual', { limit: '20' })],
+        ['fluxo', () => fetchView('vw_fluxo_caixa_realizado', { order: 'data_movimento', limit: '40' })],
+        ['talhoes', () => fetchView('vw_resultado_talhao', { order: 'custo_total.desc', limit: '15' })],
+        ['maquinas', () => fetchView('vw_uso_maquinas_safra')],
+        ['maoObra', () => fetchView('vw_horas_mao_obra_safra', { limit: '100' })]
+    ];
+
+    const out = {};
+    const errors = [];
+    let done = 0;
+
+    await Promise.all(tasks.map(async ([key, fn]) => {
+        try {
+            out[key] = await fn();
+        } catch (err) {
+            errors.push(key);
+            out[key] = [];
+            console.error(`Falha ao carregar ${key}:`, err);
+        } finally {
+            done += 1;
+            onProgress?.(done, tasks.length);
+        }
+    }));
+
+    return { data: out, errors };
+}
+
+function showLoadError(msg) {
     const loading = el('loading-state');
-    const views = el('app-views');
     const error = el('error-state');
+    const errorText = el('error-text');
+    loading?.classList.add('hidden');
+    if (errorText) errorText.textContent = msg;
+    error?.classList.remove('hidden');
+}
+
+function showDashboard() {
+    el('loading-state')?.classList.add('hidden');
+    el('error-state')?.classList.add('hidden');
+    el('app-views')?.classList.remove('hidden');
+}
+
+async function loadDashboard() {
+    const loadingText = el('loading-text');
 
     try {
-        const [
-            dre, margem, resultado, custoHa, comercial, produtividade,
-            insumos, producao, fluxo, talhoes, maquinas, maoObra
-        ] = await Promise.all([
-            fetchView('vw_dre_gerencial'),
-            fetchView('vw_margem_bruta_cultura'),
-            fetchView('vw_resultado_gerencial_cultura'),
-            fetchView('vw_custo_hectare_cultura_safra'),
-            fetchView('vw_comercializacao_cultura'),
-            fetchView('vw_produtividade_talhao', { limit: '200' }),
-            fetchView('vw_estoque_insumos_atual'),
-            fetchView('vw_estoque_producao_atual', { limit: '20' }),
-            fetchView('vw_fluxo_caixa_realizado', { order: 'data_movimento', limit: '40' }),
-            fetchView('vw_resultado_talhao', { order: 'custo_total.desc', limit: '15' }),
-            fetchView('vw_uso_maquinas_safra'),
-            fetchView('vw_horas_mao_obra_safra', { limit: '100' })
-        ]);
+        if (typeof echarts === 'undefined') {
+            throw new Error('Biblioteca de gráficos indisponível. Verifique sua conexão.');
+        }
 
-        renderOverview(dre, margem, custoHa, comercial);
-        renderCulturas(resultado, margem, produtividade);
-        renderEstoques(insumos, producao);
-        renderFinanceiro(dre, fluxo);
-        renderOperacoes(talhoes, maquinas, maoObra);
+        const { data, errors } = await fetchAllViews((done, total) => {
+            if (loadingText) loadingText.textContent = `Carregando indicadores (${done}/${total})...`;
+        });
 
-        loading.classList.add('hidden');
-        views.classList.remove('hidden');
+        if (!data.dre?.length && errors.includes('dre')) {
+            throw new Error('Não foi possível conectar à API de indicadores.');
+        }
+
+        store = data;
+
+        renderOverview(data.dre, data.margem, data.custoHa, data.comercial, false);
+        renderCulturas(data.resultado, data.margem, data.produtividade);
+        renderEstoques(data.insumos, data.producao, false);
+        renderFinanceiro(data.dre, data.fluxo, false);
+        renderOperacoes(data.talhoes, data.maquinas, data.maoObra, false);
+
+        showDashboard();
         setupTabs();
-        resizeCharts();
+        refreshChartsForTab('visao-geral');
     } catch (err) {
         console.error(err);
-        loading.classList.add('hidden');
-        error.classList.remove('hidden');
+        showLoadError(err.message || 'Não foi possível carregar os indicadores. Tente novamente.');
     }
 }
+
+document.getElementById('btn-retry')?.addEventListener('click', () => {
+    el('error-state')?.classList.add('hidden');
+    el('loading-state')?.classList.remove('hidden');
+    if (el('loading-text')) el('loading-text').textContent = 'Carregando indicadores...';
+    chartsReady.clear();
+    Object.values(charts).forEach(c => c?.dispose());
+    loadDashboard();
+});
 
 window.addEventListener('resize', resizeCharts);
 document.addEventListener('DOMContentLoaded', loadDashboard);
