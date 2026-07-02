@@ -7,10 +7,18 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=4.4';
-import { aggregateDreByCulture } from './insights.js?v=4.4';
+} from './api.js?v=4.5';
+import { aggregateDreByCulture } from './insights.js?v=4.5';
 
 const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+const RELATED_TAB_LABELS = {
+    comercializacao: 'Ver comercialização',
+    caixa: 'Ver caixa',
+    culturas: 'Ver culturas',
+    operacoes: 'Ver operações',
+    financeiro: 'Ver financeiro'
+};
 
 function pctShare(value, total) {
     if (!total) return 0;
@@ -300,7 +308,7 @@ export function buildDecisionQuestions(store) {
             tone: 'warn',
             actionLabel: 'Ver comercialização',
             drillType: 'commercialCulture',
-            relatedTab: 'perguntas',
+            relatedTab: 'comercializacao',
             payload: { cultura: cult }
         }));
     }
@@ -317,6 +325,7 @@ export function buildDecisionQuestions(store) {
             tone: Number(topCom.pct_entregue) < 80 ? 'warn' : 'positive',
             actionLabel: 'Detalhar cultura',
             drillType: 'commercialCulture',
+            relatedTab: 'comercializacao',
             payload: { cultura: topCom.cultura_nome }
         }));
     }
@@ -333,7 +342,7 @@ export function buildDecisionQuestions(store) {
             tone: 'warn',
             actionLabel: 'Ver mês',
             drillType: 'cashMonth',
-            relatedTab: 'financeiro',
+            relatedTab: 'caixa',
             payload: { monthKey: target.monthKey, monthLabel: target.monthLabel }
         }));
     }
@@ -353,6 +362,171 @@ export function buildDecisionQuestions(store) {
     }));
 
     return cards;
+}
+
+export function buildCommercialInsights(summary) {
+    const insights = [];
+    const pct = summary.totalContratado
+        ? (summary.totalEntregue / summary.totalContratado) * 100
+        : 0;
+
+    if (summary.topPendente) {
+        insights.push({
+            title: 'Concentração de saldo',
+            text: `${summary.topPendente.cultura_nome} concentra o maior saldo a entregar na safra demonstrativa.`,
+            tone: 'warn'
+        });
+    }
+
+    insights.push({
+        title: 'Execução comercial',
+        text: `A execução comercial está em ${formatPct(pct)} do volume contratado.`,
+        tone: pct >= 80 ? 'positive' : 'warn'
+    });
+
+    if (summary.totalPendente > 0) {
+        insights.push({
+            title: 'Volume pendente',
+            text: `Ainda há ${formatNumber(summary.totalPendente, 0)} sc pendentes de entrega na operação demonstrativa.`,
+            tone: 'warn'
+        });
+    } else {
+        insights.push({
+            title: 'Entregas em dia',
+            text: 'Não há saldo pendente de entrega nas culturas analisadas.',
+            tone: 'positive'
+        });
+    }
+
+    return insights;
+}
+
+export function buildCashInsights(months) {
+    if (!months?.length) {
+        return [{
+            title: 'Sem movimentação',
+            text: 'Não há dados de fluxo de caixa para análise.',
+            tone: 'info'
+        }];
+    }
+
+    const maxPressao = [...months].sort((a, b) => b.pressao - a.pressao)[0];
+    const minSaldo = [...months].sort((a, b) => a.saldoAcumulado - b.saldoAcumulado)[0];
+    const maxEntrada = [...months].sort((a, b) => b.entradas - a.entradas)[0];
+    const totalEntradas = months.reduce((s, m) => s + m.entradas, 0);
+    const totalSaidas = months.reduce((s, m) => s + m.saidas, 0);
+
+    return [
+        {
+            title: 'Pressão de caixa',
+            text: `${maxPressao.monthLabel} concentra a maior pressão de caixa (saídas superiores às entradas).`,
+            tone: 'warn'
+        },
+        {
+            title: 'Liquidez acumulada',
+            text: minSaldo
+                ? `O menor saldo acumulado ocorre em ${minSaldo.monthLabel} (${formatCurrencyCompact(minSaldo.saldoAcumulado)}).`
+                : 'Saldo acumulado estável na safra demonstrativa.',
+            tone: minSaldo && minSaldo.saldoAcumulado < 0 ? 'critical' : 'info'
+        },
+        {
+            title: 'Maior entrada',
+            text: `${maxEntrada.monthLabel} registra a maior entrada mensal (${formatCurrencyCompact(maxEntrada.entradas)}).`,
+            tone: 'positive'
+        },
+        {
+            title: 'Balanço da safra',
+            text: `Entradas ${formatCurrencyCompact(totalEntradas)} versus saídas ${formatCurrencyCompact(totalSaidas)} no período analisado.`,
+            tone: totalEntradas >= totalSaidas ? 'positive' : 'warn'
+        }
+    ];
+}
+
+export function renderCommercialTable(container, comercialRows, onAnalyze) {
+    if (!container) return;
+    const rows = buildCommercialSummary(comercialRows).rows
+        .filter(r => Number(r.volume_contratado_sc) > 0)
+        .sort((a, b) => b.volume_pendente_sc - a.volume_pendente_sc);
+
+    if (!rows.length) {
+        container.innerHTML = '<p class="insight-empty">Sem dados de comercialização.</p>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table class="compact-table">
+            <thead>
+                <tr>
+                    <th>Cultura</th>
+                    <th>Contratado</th>
+                    <th>Entregue</th>
+                    <th>Saldo</th>
+                    <th>% entregue</th>
+                    <th>Valor contratado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map(r => `
+                    <tr data-culture-row="${r.cultura_nome}">
+                        <td class="cell-name">${r.cultura_nome}</td>
+                        <td>${formatNumber(r.volume_contratado_sc, 0)} sc</td>
+                        <td>${formatNumber(r.volume_entregue_sc, 0)} sc</td>
+                        <td>${formatNumber(r.volume_pendente_sc, 0)} sc</td>
+                        <td>${formatPct(r.pct_entregue)}</td>
+                        <td>${formatCurrencyCompact(r.valor_contratado)}</td>
+                        <td><button type="button" class="comercial-analyze-btn" data-culture="${r.cultura_nome}">Analisar</button></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+
+    container.querySelectorAll('[data-culture]').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            onAnalyze?.(btn.dataset.culture);
+        });
+    });
+    container.querySelectorAll('[data-culture-row]').forEach(row => {
+        row.addEventListener('click', () => onAnalyze?.(row.dataset.cultureRow));
+    });
+}
+
+export function renderCashMobilePanel(container, months, selectedKey) {
+    if (!container) return;
+    const month = months.find(m => m.monthKey === selectedKey) || months[0];
+    if (!month) {
+        container.innerHTML = '<p class="insight-empty">Sem dados de caixa.</p>';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="cash-mobile-card cash-mobile-card--wide">
+            <div class="cash-mobile-card-label">Mês selecionado</div>
+            <div class="cash-mobile-card-value">${month.monthLabel}</div>
+        </div>
+        <div class="cash-mobile-card">
+            <div class="cash-mobile-card-label">Entradas</div>
+            <div class="cash-mobile-card-value cash-mobile-card-value--in">${formatCurrencyCompact(month.entradas)}</div>
+        </div>
+        <div class="cash-mobile-card">
+            <div class="cash-mobile-card-label">Saídas</div>
+            <div class="cash-mobile-card-value cash-mobile-card-value--out">${formatCurrencyCompact(month.saidas)}</div>
+        </div>
+        <div class="cash-mobile-card">
+            <div class="cash-mobile-card-label">Saldo do mês</div>
+            <div class="cash-mobile-card-value ${month.saldoMes >= 0 ? 'cash-mobile-card-value--in' : 'cash-mobile-card-value--out'}">${formatCurrencyCompact(month.saldoMes)}</div>
+        </div>
+        <div class="cash-mobile-card">
+            <div class="cash-mobile-card-label">Saldo acumulado</div>
+            <div class="cash-mobile-card-value">${formatCurrencyCompact(month.saldoAcumulado)}</div>
+        </div>
+        <div class="cash-mobile-card">
+            <div class="cash-mobile-card-label">Movimentos</div>
+            <div class="cash-mobile-card-value">${formatNumber(month.movimentos, 0)}</div>
+        </div>
+    `;
 }
 
 export function buildDecisionDrilldown(card, store) {
@@ -552,7 +726,10 @@ export function renderSelectedQuestionPanel(container, card, store) {
             <h4>Próxima ação sugerida</h4>
             <p class="selected-panel-action">${nextAction}</p>
         </div>
-        <button type="button" class="btn-open-drill" data-open-drill="${card.id}">Abrir análise completa</button>
+        <div class="selected-panel-actions">
+            <button type="button" class="btn-open-drill" data-open-drill="${card.id}">Abrir análise completa</button>
+            ${card.relatedTab ? `<button type="button" class="btn-goto-tab" data-goto-tab="${card.relatedTab}">${RELATED_TAB_LABELS[card.relatedTab] || 'Ver módulo'}</button>` : ''}
+        </div>
     `;
 }
 

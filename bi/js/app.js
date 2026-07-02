@@ -5,7 +5,7 @@ import {
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=4.4';
+} from './api.js?v=4.5';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
@@ -13,19 +13,22 @@ import {
     buildStockInsights,
     buildStockPanelInsights,
     buildTalhaoInsight,
-    buildFinancialInsight,
     renderInsightCards
-} from './insights.js?v=4.4';
+} from './insights.js?v=4.5';
 import {
     buildDecisionQuestions,
     buildDecisionDrilldown,
     buildCommercialSummary,
+    buildCommercialInsights,
+    buildCashInsights,
+    aggregateCashByMonth,
     renderDecisionCards,
     renderSelectedQuestionPanel,
-    renderCommercialRanking,
-    renderCashMatrix
-} from './decisionQuestions.js?v=4.4';
-import { initDrilldown, openDrilldown } from './drilldown.js?v=4.4';
+    renderCommercialTable,
+    renderCashMatrix,
+    renderCashMobilePanel
+} from './decisionQuestions.js?v=4.5';
+import { initDrilldown, openDrilldown } from './drilldown.js?v=4.5';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -37,15 +40,16 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=4.4';
+} from './charts.js?v=4.5';
 
 const charts = {};
 const chartsReady = new Set();
 let chartResizeObserver = null;
 let decisionCards = [];
 let selectedDecisionId = null;
+let selectedCashMonthKey = null;
 const DEBUG_BI = location.hostname === 'localhost' || location.search.includes('debug=1');
-const TABS = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'operacoes', 'perguntas', 'sobre'];
+const TABS = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'comercializacao', 'caixa', 'operacoes', 'perguntas', 'sobre'];
 const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
 
 let store = {};
@@ -382,36 +386,14 @@ function bindDecisionClicks() {
     });
 
     document.getElementById('selected-question-panel')?.addEventListener('click', e => {
-        const btn = e.target.closest('[data-open-drill]');
-        if (btn) openDecisionById(btn.dataset.openDrill);
+        const drillBtn = e.target.closest('[data-open-drill]');
+        if (drillBtn) openDecisionById(drillBtn.dataset.openDrill);
+        const navBtn = e.target.closest('[data-goto-tab]');
+        if (navBtn) switchTab(navBtn.dataset.gotoTab);
     });
 }
 
-function setupQuestionsSubTabs() {
-    const root = document.querySelector('.questions-bottom');
-    if (!root) return;
-    const tabs = root.querySelectorAll('.sub-tab');
-    const panels = root.querySelectorAll('.sub-tab-panel');
-
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const id = tab.dataset.subtab;
-            tabs.forEach(t => {
-                const active = t === tab;
-                t.classList.toggle('active', active);
-                t.setAttribute('aria-selected', active ? 'true' : 'false');
-            });
-            panels.forEach(p => {
-                p.classList.toggle('active', p.dataset.subpanel === id);
-            });
-            if (id === 'comercial') {
-                requestAnimationFrame(() => charts['chart-comercial-stack']?.resize());
-            }
-        });
-    });
-}
-
-function renderPerguntas(drawChart = false) {
+function renderPerguntas() {
     decisionCards = buildDecisionQuestions(store);
     if (!selectedDecisionId || !decisionCards.find(c => c.id === selectedDecisionId)) {
         selectedDecisionId = decisionCards[0]?.id || null;
@@ -423,36 +405,109 @@ function renderPerguntas(drawChart = false) {
         decisionCards.find(c => c.id === selectedDecisionId),
         store
     );
+}
 
+function renderComercializacao(drawChart = false) {
     const com = buildCommercialSummary(store.comercial || []);
     const pctEntregue = com.totalContratado
         ? (com.totalEntregue / com.totalContratado) * 100
         : 0;
 
     renderKpis('kpi-comercial', [
-        { label: 'Contratado', value: formatNumber(com.totalContratado, 0) + ' sc', hint: '' },
-        { label: 'Entregue', value: formatNumber(com.totalEntregue, 0) + ' sc', hint: '', tone: 'positive' },
+        { label: 'Volume contratado', value: formatNumber(com.totalContratado, 0) + ' sc', hint: '' },
+        { label: 'Volume entregue', value: formatNumber(com.totalEntregue, 0) + ' sc', hint: '', tone: 'positive' },
         { label: 'Saldo a entregar', value: formatNumber(com.totalPendente, 0) + ' sc', hint: '', tone: com.totalPendente > 0 ? 'warn' : 'positive' },
-        { label: '% entregue', value: formatPct(pctEntregue), hint: com.topPendente ? `Maior saldo: ${com.topPendente.cultura_nome}` : '' }
+        { label: '% entregue', value: formatPct(pctEntregue), hint: '' },
+        moneyKpi('Valor contratado', com.totalValor, 'Soma por cultura na safra demonstrativa')
     ]);
 
-    renderCommercialRanking(el('comercial-ranking'), store.comercial, openCommercialCultureDrilldown);
-    renderCashMatrix(el('cash-matrix'), store.fluxo, openCashMonthDrilldown);
+    renderInsightCards(el('insights-comercial'), buildCommercialInsights(com));
+    renderCommercialTable(el('comercial-table'), store.comercial, openCommercialCultureDrilldown);
 
     if (!drawChart) return;
 
     const rows = com.rows.filter(r => Number(r.volume_contratado_sc) > 0);
-    if (rows.length) {
-        const cats = rows.map(r => r.cultura_nome);
-        setChart('chart-comercial-stack', stackedBarOption(cats, [
-            { name: 'Entregue', data: cats.map(n => rows.find(r => r.cultura_nome === n)?.volume_entregue_sc || 0) },
-            { name: 'Saldo a entregar', data: cats.map(n => rows.find(r => r.cultura_nome === n)?.volume_pendente_sc || 0) }
-        ]));
-        charts['chart-comercial-stack']?.off('click');
-        charts['chart-comercial-stack']?.on('click', params => {
+    if (!rows.length) return;
+
+    const cats = rows.map(r => r.cultura_nome);
+    setChart('chart-comercial-stack', stackedBarOption(cats, [
+        { name: 'Entregue', data: cats.map(n => rows.find(r => r.cultura_nome === n)?.volume_entregue_sc || 0) },
+        { name: 'Saldo a entregar', data: cats.map(n => rows.find(r => r.cultura_nome === n)?.volume_pendente_sc || 0) }
+    ]));
+    charts['chart-comercial-stack']?.off('click');
+    charts['chart-comercial-stack']?.on('click', params => {
+        if (params.name) openCommercialCultureDrilldown(params.name);
+    });
+
+    const pending = [...rows]
+        .filter(r => r.volume_pendente_sc > 0)
+        .sort((a, b) => b.volume_pendente_sc - a.volume_pendente_sc)
+        .slice(0, 8);
+    if (pending.length) {
+        const names = pending.map(r => r.cultura_nome);
+        setChart('chart-comercial-ranking', horizontalBarOption(
+            names,
+            pending.map(r => r.volume_pendente_sc),
+            { color: CHART_COLORS.gold, formatter: v => formatNumber(v, 0) + ' sc' }
+        ));
+        charts['chart-comercial-ranking']?.off('click');
+        charts['chart-comercial-ranking']?.on('click', params => {
             if (params.name) openCommercialCultureDrilldown(params.name);
         });
     }
+}
+
+function setupCashMobile(months) {
+    const select = el('cash-month-select');
+    if (!select) return;
+
+    if (!selectedCashMonthKey || !months.find(m => m.monthKey === selectedCashMonthKey)) {
+        selectedCashMonthKey = months[0]?.monthKey || null;
+    }
+
+    select.innerHTML = months.map(m =>
+        `<option value="${m.monthKey}"${m.monthKey === selectedCashMonthKey ? ' selected' : ''}>${m.monthLabel}</option>`
+    ).join('');
+
+    select.onchange = () => {
+        selectedCashMonthKey = select.value;
+        renderCashMobilePanel(el('cash-mobile-cards'), months, selectedCashMonthKey);
+    };
+
+    renderCashMobilePanel(el('cash-mobile-cards'), months, selectedCashMonthKey);
+}
+
+function renderCaixa(drawChart = false) {
+    const months = aggregateCashByMonth(store.fluxo);
+    const totalEntradas = months.reduce((s, m) => s + m.entradas, 0);
+    const totalSaidas = months.reduce((s, m) => s + m.saidas, 0);
+    const saldoFinal = months.length ? months[months.length - 1].saldoAcumulado : 0;
+    const maxPressao = months.length
+        ? [...months].sort((a, b) => b.pressao - a.pressao)[0]
+        : null;
+    const maxEntrada = months.length
+        ? [...months].sort((a, b) => b.entradas - a.entradas)[0]
+        : null;
+
+    renderKpis('kpi-caixa', [
+        moneyKpi('Total de entradas', totalEntradas, 'Fluxo realizado agregado', 'positive'),
+        moneyKpi('Total de saídas', totalSaidas, 'Desembolsos do período', 'warn'),
+        moneyKpi('Saldo final', saldoFinal, 'Saldo acumulado no fim do período', saldoFinal >= 0 ? 'positive' : 'critical'),
+        { label: 'Mês de maior pressão', value: maxPressao?.monthLabel || '—', hint: maxPressao ? formatCurrencyCompact(maxPressao.pressao) + ' de pressão' : '', tone: 'warn' },
+        { label: 'Maior entrada mensal', value: maxEntrada?.monthLabel || '—', hint: maxEntrada ? formatCurrencyCompact(maxEntrada.entradas) : '', tone: 'positive' }
+    ]);
+
+    renderInsightCards(el('insights-caixa'), buildCashInsights(months));
+    renderCashMatrix(el('cash-matrix'), store.fluxo, openCashMonthDrilldown);
+    setupCashMobile(months);
+
+    if (!drawChart || !months.length) return;
+
+    setChart('chart-caixa-saldo', lineAreaOption(
+        months.map(m => m.monthLabel),
+        months.map(m => m.saldoAcumulado),
+        { rotate: months.length > 6 ? 28 : 0, interval: Math.max(0, Math.floor(months.length / 6)) }
+    ));
 }
 
 /* ─── Visão Geral ─── */
@@ -661,7 +716,36 @@ function renderEstoques(insumos, producao, drawChart = false) {
 
 /* ─── Financeiro ─── */
 
-function renderFinanceiro(dre, fluxo, drawChart = false) {
+function buildFinanceiroPanelInsights(dre) {
+    const byCulture = aggregateDreByCulture(dre);
+    const receita = sumField(byCulture, 'receita_bruta');
+    const resultado = sumField(byCulture, 'resultado');
+    const margemPct = receita ? (resultado / receita) * 100 : 0;
+    const top = [...byCulture].sort((a, b) => b.resultado - a.resultado)[0];
+    const low = [...byCulture].sort((a, b) => a.resultado - b.resultado)[0];
+    const insights = [{
+        title: 'Resultado consolidado',
+        text: `A safra demonstrativa encerra com resultado de ${formatCurrencyCompact(resultado)} e margem de ${formatPct(margemPct)}.`,
+        tone: resultado >= 0 ? 'positive' : 'critical'
+    }];
+    if (top) {
+        insights.push({
+            title: 'Maior contribuidor',
+            text: `${top.cultura_nome} lidera o resultado com ${formatCurrencyCompact(top.resultado)}.`,
+            tone: 'positive'
+        });
+    }
+    if (low && low.cultura_nome !== top?.cultura_nome) {
+        insights.push({
+            title: 'Cultura a monitorar',
+            text: `${low.cultura_nome} apresenta menor resultado relativo (${formatCurrencyCompact(low.resultado)}).`,
+            tone: 'warn'
+        });
+    }
+    return insights;
+}
+
+function renderFinanceiro(dre, _fluxo, drawChart = false) {
     const byCulture = aggregateDreByCulture(dre);
     const receita = sumField(byCulture, 'receita_bruta');
     const custosVar = sumField(byCulture, 'custos_variaveis');
@@ -676,6 +760,8 @@ function renderFinanceiro(dre, fluxo, drawChart = false) {
         moneyKpi('Despesas / fixos', despesas),
         moneyKpi('Resultado', resultado, `Margem ${formatPct(margemPct)}`, resultado >= 0 ? 'positive' : 'critical', resultadoClass)
     ]);
+
+    renderInsightCards(el('insights-financeiro'), buildFinanceiroPanelInsights(dre));
 
     const dreContainer = el('cards-dre');
     if (dreContainer) {
@@ -726,14 +812,6 @@ function renderFinanceiro(dre, fluxo, drawChart = false) {
         { name: 'Variáveis', data: cats.map(n => byCulture.find(c => c.cultura_nome === n)?.custos_variaveis || 0) },
         { name: 'Fixos', data: cats.map(n => byCulture.find(c => c.cultura_nome === n)?.custos_fixos || 0) }
     ]));
-
-    if (fluxo.length) {
-        setChart('chart-fluxo', lineAreaOption(
-            fluxo.map(r => r.data_movimento),
-            fluxo.map(r => r.saldo_acumulado),
-            { rotate: 35, interval: Math.floor(fluxo.length / 6) }
-        ));
-    }
 }
 
 /* ─── Operações ─── */
@@ -813,11 +891,17 @@ function refreshChartsForTab(tabId) {
             case 'financeiro':
                 renderFinanceiro(store.dre, store.fluxo, true);
                 break;
+            case 'comercializacao':
+                renderComercializacao(true);
+                break;
+            case 'caixa':
+                renderCaixa(true);
+                break;
             case 'operacoes':
                 renderOperacoes(store.talhoes, store.maquinas, store.maoObra, true);
                 break;
             case 'perguntas':
-                renderPerguntas(true);
+                renderPerguntas();
                 break;
             default:
                 break;
@@ -934,8 +1018,10 @@ async function loadDashboard() {
         renderCulturas(data.resultado, data.margem, data.produtividade, data.dre, false);
         renderEstoques(data.insumos, data.producao, false);
         renderFinanceiro(data.dre, data.fluxo, false);
+        renderComercializacao(false);
+        renderCaixa(false);
         renderOperacoes(data.talhoes, data.maquinas, data.maoObra, false);
-        renderPerguntas(false);
+        renderPerguntas();
 
         showDashboard();
         initDrilldown(() => {
@@ -943,7 +1029,6 @@ async function loadDashboard() {
         });
         bindDrilldownClicks();
         bindDecisionClicks();
-        setupQuestionsSubTabs();
         setupChartResizeObserver();
         setupTabs();
         refreshChartsForTab('visao-geral');

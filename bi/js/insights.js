@@ -1,7 +1,7 @@
 /**
  * Insights interpretativos gerados por regras simples sobre os dados carregados.
  */
-import { formatCurrency, formatCurrencyCompact, formatNumber, formatPct, sumField } from './api.js?v=4.4';
+import { formatCurrency, formatCurrencyCompact, formatNumber, formatPct, sumField } from './api.js?v=4.5';
 
 function pctShare(value, total) {
     if (!total) return 0;

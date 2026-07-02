@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=4.4">
+    <link rel="stylesheet" href="css/styles.css?v=4.5">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=4.4"></script>
+    <script type="module" src="js/app.js?v=4.5"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -40,6 +40,14 @@
             <button type="button" class="tab" data-tab="financeiro">
                 <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
                 <span class="tab-label">Financeiro</span>
+            </button>
+            <button type="button" class="tab" data-tab="comercializacao">
+                <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
+                <span class="tab-label">Comercialização</span>
+            </button>
+            <button type="button" class="tab" data-tab="caixa">
+                <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
+                <span class="tab-label">Caixa</span>
             </button>
             <button type="button" class="tab" data-tab="operacoes">
                 <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></span>
@@ -153,7 +161,7 @@
                     <div class="finance-layout">
                         <header class="view-head view-head--compact">
                             <h2>Visão financeira executiva</h2>
-                            <p class="view-subtitle">DRE, fluxo de caixa e composição de custos</p>
+                            <p class="view-subtitle">DRE, resultado e composição de custos por cultura</p>
                         </header>
                         <div class="kpi-row kpi-row--4" id="kpi-financeiro"></div>
                         <div class="finance-top">
@@ -167,14 +175,80 @@
                             </div>
                         </div>
                         <div class="finance-bottom">
-                            <div class="chart-card">
-                                <h3>Fluxo de caixa — saldo acumulado</h3>
-                                <div class="chart-body"><div id="chart-fluxo" class="chart"></div></div>
-                            </div>
                             <div class="panel-scroll panel-scroll--dre">
                                 <h3 class="block-title">DRE gerencial por cultura</h3>
                                 <div id="cards-dre" class="compact-table-wrap"></div>
                             </div>
+                            <aside class="insights-panel insights-panel--scroll">
+                                <h3 class="insights-heading">Leitura financeira</h3>
+                                <div id="insights-financeiro" class="insights-list"></div>
+                            </aside>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Comercialização -->
+                <section id="comercializacao" class="view-panel dashboard-section" data-view="comercializacao">
+                    <div class="commercial-layout">
+                        <header class="view-head view-head--compact">
+                            <h2>Comercialização da safra</h2>
+                            <p class="view-subtitle">Contratos, entregas e saldo comercial por cultura</p>
+                        </header>
+                        <div class="kpi-row kpi-row--5" id="kpi-comercial"></div>
+                        <p class="comercial-disclaimer">Visão agregada por cultura. Contratos individuais exigem a próxima camada analítica.</p>
+                        <div class="commercial-main">
+                            <div class="chart-card">
+                                <h3>Entregue × saldo a entregar</h3>
+                                <p class="chart-desc">Volume comercial por cultura</p>
+                                <div class="chart-body"><div id="chart-comercial-stack" class="chart"></div></div>
+                            </div>
+                            <div class="chart-card">
+                                <h3>Ranking — saldo a entregar</h3>
+                                <p class="chart-desc">Top culturas com pendência de entrega</p>
+                                <div class="chart-body"><div id="chart-comercial-ranking" class="chart"></div></div>
+                            </div>
+                        </div>
+                        <div class="commercial-bottom">
+                            <div class="panel-scroll">
+                                <h3 class="block-title">Culturas — visão detalhada</h3>
+                                <div id="comercial-table" class="compact-table-wrap"></div>
+                            </div>
+                            <aside class="insights-panel insights-panel--scroll">
+                                <h3 class="insights-heading">Insights comerciais</h3>
+                                <div id="insights-comercial" class="insights-list"></div>
+                            </aside>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Caixa -->
+                <section id="caixa" class="view-panel dashboard-section" data-view="caixa">
+                    <div class="cash-layout">
+                        <header class="view-head view-head--compact">
+                            <h2>Fluxo de Caixa Gerencial</h2>
+                            <p class="view-subtitle">Entradas, saídas, saldo mensal e saldo acumulado</p>
+                        </header>
+                        <div class="kpi-row kpi-row--5" id="kpi-caixa"></div>
+                        <div class="cash-main cash-main--desktop">
+                            <div class="cash-matrix-panel">
+                                <h3 class="block-title">Matriz mensal de caixa</h3>
+                                <div class="cash-matrix-wrapper" id="cash-matrix"></div>
+                                <p class="cash-matrix-note">Clique em um mês para detalhar a pressão de caixa.</p>
+                            </div>
+                            <aside class="insights-panel insights-panel--scroll">
+                                <h3 class="insights-heading">Insights de caixa</h3>
+                                <div id="insights-caixa" class="insights-list"></div>
+                            </aside>
+                        </div>
+                        <div class="chart-card cash-chart-card">
+                            <h3>Saldo acumulado</h3>
+                            <p class="chart-desc">Evolução da liquidez na safra demonstrativa</p>
+                            <div class="chart-body"><div id="chart-caixa-saldo" class="chart"></div></div>
+                        </div>
+                        <div class="cash-mobile" id="cash-mobile">
+                            <label class="cash-mobile-label" for="cash-month-select">Mês</label>
+                            <select id="cash-month-select" class="cash-month-select"></select>
+                            <div id="cash-mobile-cards" class="cash-mobile-cards"></div>
                         </div>
                     </div>
                 </section>
@@ -215,37 +289,11 @@
                     <div class="questions-layout">
                         <header class="view-head view-head--compact">
                             <h2>Perguntas do Gestor</h2>
-                            <p class="view-subtitle">Centro de decisão — selecione uma pergunta para analisar</p>
+                            <p class="view-subtitle">Respostas automáticas a partir dos dados operacionais e financeiros.</p>
                         </header>
                         <div class="questions-main">
                             <div class="decision-card-grid" id="decision-cards"></div>
                             <aside class="selected-question-panel" id="selected-question-panel" aria-live="polite"></aside>
-                        </div>
-                        <div class="questions-bottom">
-                            <div class="sub-tabs" role="tablist" aria-label="Dados complementares">
-                                <button type="button" class="sub-tab active" data-subtab="comercial" role="tab" aria-selected="true">Comercialização</button>
-                                <button type="button" class="sub-tab" data-subtab="caixa" role="tab" aria-selected="false">Caixa</button>
-                            </div>
-                            <div class="sub-tab-panels">
-                                <div class="sub-tab-panel active" data-subpanel="comercial" role="tabpanel">
-                                    <p class="comercial-disclaimer">Comercialização agregada por cultura. Contratos individuais exigem a próxima camada analítica.</p>
-                                    <div class="comercial-panel-grid">
-                                        <div class="kpi-row kpi-row--4 kpi-row--compact" id="kpi-comercial"></div>
-                                        <div class="chart-card chart-card--comercial">
-                                            <h3>Entregue × saldo a entregar</h3>
-                                            <div class="chart-body"><div id="chart-comercial-stack" class="chart"></div></div>
-                                        </div>
-                                        <div class="comercial-ranking-wrap">
-                                            <h3 class="block-title">Saldo a entregar por cultura</h3>
-                                            <div id="comercial-ranking" class="comercial-ranking"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="sub-tab-panel" data-subpanel="caixa" role="tabpanel">
-                                    <div class="cash-matrix-wrapper" id="cash-matrix"></div>
-                                    <p class="cash-matrix-note">Clique em um mês para detalhar a pressão de caixa.</p>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </section>
