@@ -5,13 +5,13 @@
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=5.2';
+} from './api.js?v=5.3';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
     buildStockPanelInsights,
     renderInsightCards
-} from './insights.js?v=5.2';
+} from './insights.js?v=5.3';
 import {
     buildDecisionQuestions,
     buildCommercialSummary,
@@ -23,10 +23,10 @@ import {
     renderCommercialTable,
     renderCashMatrix,
     renderCashMobilePanel
-} from './decisionQuestions.js?v=5.2';
-import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.2';
-import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.2';
-import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.2';
+} from './decisionQuestions.js?v=5.3';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.3';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.3';
+import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.3';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -38,7 +38,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=5.2';
+} from './charts.js?v=5.3';
 import {
     initFilters,
     loadFilterState,
@@ -50,7 +50,7 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=5.2';
+} from './filters.js?v=5.3';
 
 const charts = {};
 const chartsReady = new Set();
@@ -58,7 +58,7 @@ let chartResizeObserver = null;
 let decisionCards = [];
 let selectedDecisionId = null;
 let selectedCashMonthKey = null;
-let selectedDreSubTab = 'dre';
+let selectedDreSubTab = 'demonstrativo';
 const DEBUG_BI = location.hostname === 'localhost' || location.search.includes('debug=1');
 const TABS = ['visao-geral', 'culturas', 'estoques', 'dre-gerencial', 'comercializacao', 'caixa', 'operacoes', 'perguntas', 'sobre'];
 const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
@@ -839,7 +839,7 @@ function refreshChartsForTab(tabId) {
                 break;
             }
             case 'dre-gerencial':
-                renderDreGerencialTab(true);
+                renderDreGerencialTab(selectedDreSubTab === 'visualizacoes');
                 break;
             case 'comercializacao':
                 renderComercializacao(true);
@@ -1016,7 +1016,7 @@ async function loadDashboard() {
         initDreSubtabs(tab => {
             selectedDreSubTab = tab;
             const onDreTab = getCurrentTabId() === 'dre-gerencial';
-            renderDreGerencialTab(onDreTab && chartsReady.has('dre-gerencial'));
+            renderDreGerencialTab(tab === 'visualizacoes');
             if (onDreTab) requestAnimationFrame(resizeVisibleCharts);
         });
         setupChartResizeObserver();

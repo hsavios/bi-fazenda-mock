@@ -1,14 +1,14 @@
 ﻿/**
- * DRE Gerencial Contábil — orquestração premium (explorer, KPIs, subtabs).
+ * DRE Gerencial Contábil — demonstrativo formal + subtabs.
  */
 import {
     formatCurrency,
     formatCurrencyCompact,
     formatPct
-} from './api.js?v=5.2';
-import { renderInsightCards } from './insights.js?v=5.2';
-import { buildExplorerModel, renderDreExplorer, resetExplorerState } from './dreExplorer.js?v=5.2';
-import { renderPremiumBalancete, renderPremiumCultura } from './drePanels.js?v=5.2';
+} from './api.js?v=5.3';
+import { buildExplorerModel, renderDreExplorer, resetExplorerState } from './dreExplorer.js?v=5.3';
+import { renderPremiumBalancete, renderPremiumCultura } from './drePanels.js?v=5.3';
+import { renderDreVisualizacoes } from './dreVisualizacoes.js?v=5.3';
 
 const CONSOLIDADO = 'Consolidado';
 
@@ -121,7 +121,7 @@ export function buildDreContabilInsights(lines, culturaComp) {
 function renderFilterBreadcrumb(container, filterContext) {
     if (!container) return;
     if (!filterContext) {
-        container.innerHTML = '<span class="dre-breadcrumb-item dre-breadcrumb-item--muted">Consolidado · Toda a fazenda</span>';
+        container.innerHTML = '<span class="dre-breadcrumb-item dre-breadcrumb-item--muted">Consolidado · Toda a fazenda · Safra completa</span>';
         return;
     }
     container.innerHTML = `<span class="dre-breadcrumb-item">${filterContext.replace('Recorte atual: ', '')}</span>`;
@@ -130,16 +130,16 @@ function renderFilterBreadcrumb(container, filterContext) {
 function renderPremiumKpis(container, kpis, onDrill) {
     if (!container) return;
     const items = [
-        { label: 'Receita líquida', value: formatCurrencyCompact(kpis.receitaLiq), drill: 'receita-liquida-contabil', tone: 'positive', icon: '↗' },
-        { label: 'Margem bruta', value: formatCurrencyCompact(kpis.margemBruta), hint: formatPct(kpis.margemBrutaPct), drill: 'margem-bruta-contabil', tone: 'default' },
+        { label: 'Receita líquida', value: formatCurrencyCompact(kpis.receitaLiq), drill: 'receita-liquida-contabil', tone: 'positive' },
+        { label: 'Margem bruta', value: formatCurrencyCompact(kpis.margemBruta), hint: formatPct(kpis.margemBrutaPct), drill: 'margem-bruta-contabil' },
         { label: 'EBITDA', value: formatCurrencyCompact(kpis.ebitda), drill: 'ebitda-contabil', tone: 'positive' },
         { label: 'Resultado líquido', value: formatCurrencyCompact(kpis.resLiq), hint: formatPct(kpis.margemLiqPct), drill: 'resultado-liquido-contabil', tone: kpis.resLiq >= 0 ? 'positive' : 'critical' },
-        { label: 'Margem líquida', value: formatPct(kpis.margemLiqPct), drill: 'margem-liquida-contabil', tone: 'default' },
-        { label: 'R$/ha', value: kpis.resHa ? formatCurrencyCompact(kpis.resHa) : '—', drill: 'resultado-ha-contabil', tone: 'default' },
-        { label: 'R$/sc', value: kpis.resSc ? formatCurrency(kpis.resSc) : '—', drill: 'resultado-sc-contabil', tone: 'default' }
+        { label: 'Margem líquida', value: formatPct(kpis.margemLiqPct), drill: 'margem-liquida-contabil' },
+        { label: 'R$/ha', value: kpis.resHa ? formatCurrencyCompact(kpis.resHa) : '—', drill: 'resultado-ha-contabil' },
+        { label: 'R$/sc', value: kpis.resSc ? formatCurrency(kpis.resSc) : '—', drill: 'resultado-sc-contabil' }
     ];
     container.innerHTML = items.map(it => `
-        <div class="dre-kpi-card dre-kpi-card--${it.tone} dre-kpi-card--clickable"
+        <div class="dre-kpi-card dre-kpi-card--${it.tone || 'default'} dre-kpi-card--clickable"
              data-drill-kpi="${it.drill}" role="button" tabindex="0" aria-label="Detalhar ${it.label}">
             <span class="dre-kpi-label">${it.label}</span>
             <span class="dre-kpi-value">${it.value}</span>
@@ -155,58 +155,13 @@ function renderPremiumKpis(container, kpis, onDrill) {
     });
 }
 
-function renderWaterfall(container, lines, onDrill) {
-    if (!container || typeof echarts === 'undefined') return;
-    const pick = names => names.reduce((s, n) => s + (lines.find(l => l.linha_dre === n)?.valor || 0), 0);
-    const steps = [
-        { label: 'Receita bruta', value: pick(['Receita bruta']) },
-        { label: 'Deduções', value: pick(['Deduções']) },
-        { label: 'Custos var.', value: pick(['Custos variáveis']) },
-        { label: 'Custos fixos', value: pick(['Custos fixos']) },
-        { label: 'Despesas', value: pick(['Despesas comerciais', 'Despesas administrativas']) },
-        { label: 'Depreciação', value: pick(['Depreciação/amortização']) },
-        { label: 'Financeiro', value: pick(['Resultado financeiro']) },
-        { label: 'Tributos', value: pick(['Tributos']) },
-        { label: 'Resultado líquido', value: pick(['Resultado líquido gerencial']) }
-    ];
-
-    const chart = echarts.getInstanceByDom(container) || echarts.init(container);
-    chart.setOption({
-        tooltip: {
-            trigger: 'item',
-            formatter: p => `${p.name}<br>${formatCurrency(p.value)}<br><span style="opacity:.7;font-size:10px">Clique para detalhar</span>`
-        },
-        grid: { left: 48, right: 16, top: 16, bottom: 40 },
-        xAxis: { type: 'category', data: steps.map(s => s.label), axisLabel: { fontSize: 9, rotate: 22, color: '#5a6b5e' } },
-        yAxis: { type: 'value', axisLabel: { fontSize: 10, formatter: v => formatCurrencyCompact(v), color: '#5a6b5e' }, splitLine: { lineStyle: { color: '#e8efe9' } } },
-        series: [{
-            type: 'bar',
-            barMaxWidth: 36,
-            data: steps.map(s => ({
-                value: Math.abs(s.value),
-                itemStyle: {
-                    color: s.value >= 0 ? '#2d6a4f' : '#c1121f',
-                    borderRadius: [4, 4, 0, 0]
-                },
-                raw: s.value,
-                label: s.label
-            }))
-        }]
-    }, true);
-    chart.off('click');
-    chart.on('click', p => {
-        if (p.name) onDrill?.('dreLine', { label: p.name, linha: p.name });
-    });
-    return chart;
-}
-
 export function renderDreGerencial({
     store,
     filterState,
     charts,
     setChart,
     onDrill,
-    subTab = 'dre',
+    subTab = 'demonstrativo',
     drawChart = false,
     filterContext = ''
 }) {
@@ -222,19 +177,26 @@ export function renderDreGerencial({
 
     renderFilterBreadcrumb(document.getElementById('dre-filter-breadcrumb'), filterContext);
     renderPremiumKpis(document.getElementById('kpi-dre-gerencial'), kpis, onDrill);
-    renderInsightCards(document.getElementById('insights-dre-gerencial'), buildDreContabilInsights(lines, data.dreCulturaComp));
 
     const explorerModel = buildExplorerModel(lines, data.dreContabil);
-    const explorerCtx = {
+    renderDreExplorer(document.getElementById('dre-explorer'), explorerModel, {
         receitaLiq: kpis.receitaLiq,
         data,
         filterContext,
         onDrill
-    };
-    renderDreExplorer(document.getElementById('dre-explorer'), explorerModel, explorerCtx);
+    });
 
     renderPremiumBalancete(document.getElementById('dre-balancete'), data.balanceteGerencial, onDrill);
     renderPremiumCultura(document.getElementById('dre-cultura-comp'), data.dreCulturaComp, onDrill);
+
+    renderDreVisualizacoes({
+        lines,
+        data,
+        charts,
+        setChart,
+        onDrill,
+        drawChart: drawChart && subTab === 'visualizacoes'
+    });
 
     document.querySelectorAll('.dre-segment').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.dreSubtab === subTab);
@@ -246,26 +208,12 @@ export function renderDreGerencial({
 
     const skeleton = document.getElementById('dre-explorer-skeleton');
     if (skeleton) skeleton.classList.add('hidden');
-
-    if (!drawChart) return;
-    const wf = document.getElementById('chart-dre-waterfall');
-    if (wf) {
-        const chart = renderWaterfall(wf, lines, onDrill);
-        if (chart) charts['chart-dre-waterfall'] = chart;
-    }
 }
 
 export function initDreSubtabs(onChange) {
     document.querySelectorAll('.dre-segment').forEach(btn => {
         btn.addEventListener('click', () => onChange(btn.dataset.dreSubtab));
     });
-}
-
-export function showDreLoading() {
-    const sk = document.getElementById('dre-explorer-skeleton');
-    const ex = document.getElementById('dre-explorer');
-    if (sk) sk.classList.remove('hidden');
-    if (ex) ex.innerHTML = '';
 }
 
 export { aggregateResumo, CONSOLIDADO, resetExplorerState };

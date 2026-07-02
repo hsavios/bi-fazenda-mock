@@ -6,8 +6,8 @@ import {
     formatCurrencyCompact,
     formatPct,
     formatNumber
-} from './api.js?v=5.2';
-import { openDreLinePanel, openDreZoomView, closeDreZoomView } from './drePanels.js?v=5.2';
+} from './api.js?v=5.3';
+import { openDreLinePanel, openDreZoomView, closeDreZoomView } from './drePanels.js?v=5.3';
 
 const LINHA_GRUPO_ORDEM = {
     'Receita bruta': 10,
@@ -26,22 +26,43 @@ const CALCULATED_LINES = new Set([
     'EBITDA', 'Resultado operacional', 'Resultado antes impostos', 'Resultado líquido gerencial'
 ]);
 
-const DEFAULT_EXPANDED = new Set(['line-10', 'line-40']);
+const DEFAULT_EXPANDED = new Set();
 
-let expandedNodes = new Set(DEFAULT_EXPANDED);
-let activeRowId = null;
+const SUBTOTAL_LINES = new Set([
+    'Receita líquida', 'Margem bruta', 'Resultado atividade agrícola',
+    'EBITDA', 'Resultado operacional', 'Resultado antes impostos', 'Resultado líquido gerencial'
+]);
 
-function statusMeta(val, isTotal = false) {
-    if (isTotal) {
-        return val >= 0
-            ? { label: 'Positivo', cls: 'dre-badge--ok' }
-            : { label: 'Crítico', cls: 'dre-badge--critical' };
-    }
-    if (val >= 0) return { label: 'Positivo', cls: 'dre-badge--ok' };
-    return { label: 'Atenção', cls: 'dre-badge--warn' };
+const DEDUCTION_LINES = new Set([
+    'Deduções', 'Custos variáveis', 'Custos fixos', 'Despesas comerciais',
+    'Despesas administrativas', 'Depreciação/amortização', 'Tributos'
+]);
+
+function linePrefix(node) {
+    if (node.isTotal || node.linha_dre === 'Resultado líquido gerencial') return '(=)';
+    if (SUBTOTAL_LINES.has(node.linha_dre)) return '(=)';
+    if (DEDUCTION_LINES.has(node.linha_dre)) return '(-)';
+    if (node.type === 'group' && Number(node.valor) < 0) return '(-)';
+    return '';
 }
 
-function aggregateContabilByGrupo(contabilRows) {
+function rowClass(node) {
+    const parts = ['dre-row', `dre-row--${node.type}`];
+    if (node.isTotal) parts.push('dre-row--result');
+    else if (SUBTOTAL_LINES.has(node.linha_dre)) parts.push('dre-row--subtotal');
+    if (node.isCalc) parts.push('dre-row--calc');
+    if (Number(node.valor) < 0) parts.push('dre-negative');
+    else if (Number(node.valor) > 0 && node.type === 'synthetic') parts.push('dre-positive');
+    return parts.join(' ');
+}
+
+function fmtVal(v) {
+    const n = Number(v || 0);
+    const abs = formatCurrencyCompact(Math.abs(n));
+    return n < 0 ? `-${abs}` : abs;
+}
+let activeRowId = null;
+let expandedNodes = new Set(DEFAULT_EXPANDED);
     const map = new Map();
     (contabilRows || []).forEach(r => {
         const og = Number(r.ordem_grupo || 0);
@@ -166,45 +187,43 @@ function fmtHaSc(v) {
 }
 
 function renderRow(node, ctx, depth = 0) {
-    const { receitaLiq, maxAbs, data, filterContext, onDrill } = ctx;
+    const { receitaLiq, maxAbs } = ctx;
     const pct = pctRecLiq(node.valor, receitaLiq);
-    const st = statusMeta(node.valor, node.isTotal);
     const hasChildren = node.children?.length > 0;
     const isExpanded = expandedNodes.has(node.id);
     const isActive = activeRowId === node.id;
     const canExpand = hasChildren && !node.isCalc;
-    const indent = depth * 1.15;
+    const indent = depth * 1.25;
+    const prefix = linePrefix(node);
+    const displayLabel = prefix ? `${prefix} ${node.label}` : node.label;
 
     const chevron = canExpand
-        ? `<button type="button" class="dre-expander${isExpanded ? ' dre-expander--open' : ''}" data-expand="${node.id}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? 'Recolher' : 'Expandir'} ${node.label}">
+        ? `<button type="button" class="dre-expand-button${isExpanded ? ' dre-expand-button--open' : ''}" data-expand="${node.id}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? 'Recolher' : 'Expandir'} ${node.label}">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg>
            </button>`
-        : `<span class="dre-expander dre-expander--spacer" aria-hidden="true"></span>`;
+        : `<span class="dre-expand-button dre-expand-button--spacer" aria-hidden="true"></span>`;
 
-    const zoomBtn = node.type === 'group' || (node.type === 'synthetic' && hasChildren)
-        ? `<button type="button" class="dre-zoom-btn" data-zoom="${node.id}" title="Modo zoom analítico">⤢</button>`
+    const zoomBtn = (node.type === 'group' || (node.type === 'synthetic' && hasChildren))
+        ? `<button type="button" class="dre-zoom-btn" data-zoom="${node.id}" title="Zoom analítico" aria-label="Zoom analítico">⤢</button>`
         : '';
 
-    const detailBtn = `<button type="button" class="dre-detail-btn" data-detail="${node.id}">Ver detalhe</button>`;
-
     let html = `
-        <div class="dre-row dre-row--${node.type}${isActive ? ' dre-row--active' : ''}${node.isTotal ? ' dre-row--total' : ''}${node.isCalc ? ' dre-row--calc' : ''}"
+        <div class="${rowClass(node)}${isActive ? ' dre-row--active' : ''}${isExpanded ? ' dre-row--expanded' : ''}"
              data-node-id="${node.id}" data-depth="${depth}" style="--row-indent:${indent}rem">
-            <div class="dre-row-main" role="button" tabindex="0" data-open="${node.id}">
+            <div class="dre-row-main" role="button" tabindex="0" data-open="${node.id}" title="Clique para detalhar">
                 ${chevron}
                 <div class="dre-row-label">
-                    <span class="dre-row-name">${node.label}</span>
+                    <span class="dre-row-name">${displayLabel}</span>
                     ${node.type === 'account' ? `<span class="dre-row-meta">${node.conta_codigo || ''}</span>` : ''}
-                    ${node.isCalc ? '<span class="dre-row-tag">Calculado</span>' : ''}
                 </div>
-                <div class="dre-row-val dre-col-val" style="${dataBarStyle(node.valor, maxAbs)}">
-                    <span class="dre-val-text">${formatCurrencyCompact(node.valor)}</span>
+                <div class="dre-value-cell dre-col-val" style="${dataBarStyle(node.valor, maxAbs)}">
+                    <span class="dre-value-bar" aria-hidden="true"></span>
+                    <span class="dre-val-text">${fmtVal(node.valor)}</span>
                 </div>
                 <div class="dre-col-pct dre-col-hide-sm">${pct}</div>
                 <div class="dre-col-ha dre-col-hide-sm">${fmtHaSc(node.valor_ha)}</div>
                 <div class="dre-col-sc dre-col-hide-sm">${node.valor_sc != null ? formatCurrency(node.valor_sc) : '—'}</div>
-                <div class="dre-col-status">${node.type !== 'account' ? `<span class="dre-badge ${st.cls}">${st.label}</span>` : ''}</div>
-                <div class="dre-col-actions">${zoomBtn}${detailBtn}</div>
+                <div class="dre-col-actions">${zoomBtn}</div>
             </div>
         </div>
     `;
@@ -262,19 +281,12 @@ function bindExplorerEvents(container, model, ctx) {
 
     container.querySelectorAll('[data-open]').forEach(row => {
         const handler = e => {
-            if (e.target.closest('[data-expand]') || e.target.closest('[data-zoom]') || e.target.closest('.dre-detail-btn')) return;
+            if (e.target.closest('[data-expand]') || e.target.closest('[data-zoom]')) return;
             openDetail(row.dataset.open);
         };
         row.addEventListener('click', handler);
         row.addEventListener('keydown', e => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(row.dataset.open); }
-        });
-    });
-
-    container.querySelectorAll('[data-detail]').forEach(btn => {
-        btn.addEventListener('click', e => {
-            e.stopPropagation();
-            openDetail(btn.dataset.detail);
         });
     });
 
@@ -303,17 +315,24 @@ export function renderDreExplorer(container, model, ctx) {
     const renderCtx = { ...ctx, maxAbs };
 
     container.innerHTML = `
-        <div class="dre-grid-head">
-            <div class="dre-col-label">Linha DRE</div>
-            <div class="dre-col-val">Valor</div>
-            <div class="dre-col-pct dre-col-hide-sm">% Rec. Líq.</div>
-            <div class="dre-col-ha dre-col-hide-sm">R$/ha</div>
-            <div class="dre-col-sc dre-col-hide-sm">R$/sc</div>
-            <div class="dre-col-status">Status</div>
-            <div class="dre-col-actions"></div>
-        </div>
-        <div class="dre-grid-body">
-            ${model.map(n => renderRow(n, renderCtx, 0)).join('')}
+        <div class="dre-statement-shell">
+            <div class="dre-statement-header">
+                <h3>DRE Gerencial — Competência</h3>
+                <p>Valores em R$ · Regime de competência · Clique na linha para investigar</p>
+            </div>
+            <div class="dre-statement-table">
+                <div class="dre-grid-head">
+                    <div class="dre-col-label">Linha DRE</div>
+                    <div class="dre-col-val">Valor</div>
+                    <div class="dre-col-pct dre-col-hide-sm">% RL</div>
+                    <div class="dre-col-ha dre-col-hide-sm">R$/ha</div>
+                    <div class="dre-col-sc dre-col-hide-sm">R$/sc</div>
+                    <div class="dre-col-actions"></div>
+                </div>
+                <div class="dre-grid-body">
+                    ${model.map(n => renderRow(n, renderCtx, 0)).join('')}
+                </div>
+            </div>
         </div>
     `;
 

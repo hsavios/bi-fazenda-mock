@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=5.2">
+    <link rel="stylesheet" href="css/styles.css?v=5.3">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=5.2"></script>
+    <script type="module" src="js/app.js?v=5.3"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -180,44 +180,60 @@
                         <header class="dre-page-head">
                             <div class="dre-page-head-text">
                                 <h2>DRE Gerencial Contábil</h2>
-                                <p class="view-subtitle">Demonstrativo por competência com navegação analítica</p>
+                                <p class="view-subtitle">Demonstrativo por competência · regime contábil gerencial</p>
                             </div>
                             <nav id="dre-filter-breadcrumb" class="dre-breadcrumb" aria-label="Contexto dos filtros"></nav>
                         </header>
-                        <div class="dre-kpi-strip" id="kpi-dre-gerencial"></div>
+                        <div class="dre-kpi-strip dre-kpi-strip--compact" id="kpi-dre-gerencial"></div>
                         <div class="dre-segmented" role="tablist" aria-label="Visões contábeis">
-                            <button type="button" class="dre-segment active" data-dre-subtab="dre" role="tab" aria-selected="true">DRE</button>
+                            <button type="button" class="dre-segment active" data-dre-subtab="demonstrativo" role="tab" aria-selected="true">Demonstrativo</button>
+                            <button type="button" class="dre-segment" data-dre-subtab="visualizacoes" role="tab" aria-selected="false">Visualizações</button>
                             <button type="button" class="dre-segment" data-dre-subtab="balancete" role="tab" aria-selected="false">Balancete</button>
                             <button type="button" class="dre-segment" data-dre-subtab="cultura" role="tab" aria-selected="false">Cultura</button>
                         </div>
                         <div class="dre-main">
-                            <div class="dre-subpanel" data-dre-subpanel="dre">
-                                <details class="dre-waterfall-details" open>
-                                    <summary class="dre-waterfall-summary">
-                                        <span>Waterfall gerencial</span>
-                                        <small>Receita → custos → resultado</small>
-                                    </summary>
-                                    <div class="dre-waterfall-card">
-                                        <div class="chart-body chart-body--compact"><div id="chart-dre-waterfall" class="chart chart--dre-wf"></div></div>
-                                    </div>
-                                </details>
-                                <div class="dre-explorer-wrap">
-                                    <div class="dre-explorer-head">
-                                        <h3 class="block-title">DRE Explorer</h3>
-                                        <p class="chart-desc">Expanda grupos · clique para painel contextual · ⤢ zoom analítico</p>
-                                    </div>
+                            <div class="dre-subpanel" data-dre-subpanel="demonstrativo">
+                                <div class="dre-statement-wrap">
                                     <div id="dre-explorer-skeleton" class="dre-skeleton hidden" aria-hidden="true">
                                         <div class="dre-skeleton-row"></div>
                                         <div class="dre-skeleton-row"></div>
                                         <div class="dre-skeleton-row"></div>
                                     </div>
-                                    <div id="dre-explorer" class="dre-explorer"></div>
+                                    <div id="dre-explorer" class="dre-explorer dre-explorer--statement"></div>
                                     <div id="dre-zoom-overlay" class="dre-zoom hidden" aria-hidden="true"></div>
                                 </div>
-                                <aside class="dre-insights-rail">
-                                    <h3 class="insights-heading">Insights contábeis</h3>
-                                    <div id="insights-dre-gerencial" class="insights-list"></div>
-                                </aside>
+                            </div>
+                            <div class="dre-subpanel hidden" data-dre-subpanel="visualizacoes">
+                                <header class="dre-viz-head">
+                                    <h3 class="block-title">Visualizações Contábeis</h3>
+                                    <p class="chart-desc">Análises visuais derivadas da DRE por competência</p>
+                                </header>
+                                <div class="dre-viz-grid">
+                                    <div class="chart-card">
+                                        <h3>Waterfall DRE</h3>
+                                        <p class="chart-desc">Receita → custos → despesas → resultado</p>
+                                        <div class="chart-body"><div id="chart-dre-waterfall" class="chart chart--dre-wf"></div></div>
+                                    </div>
+                                    <div class="chart-card">
+                                        <h3>Composição dos custos</h3>
+                                        <p class="chart-desc">Grupos de despesa e CPV no recorte</p>
+                                        <div class="chart-body"><div id="chart-dre-custos" class="chart"></div></div>
+                                    </div>
+                                    <div class="chart-card">
+                                        <h3>Resultado por cultura</h3>
+                                        <p class="chart-desc">Resultado líquido contábil por cultura</p>
+                                        <div class="chart-body"><div id="chart-dre-resultado-cultura" class="chart"></div></div>
+                                    </div>
+                                    <div class="chart-card">
+                                        <h3>Margem por cultura</h3>
+                                        <p class="chart-desc">Margem líquida % por cultura</p>
+                                        <div class="chart-body"><div id="chart-dre-margem-cultura" class="chart"></div></div>
+                                    </div>
+                                    <aside class="dre-viz-insights chart-card">
+                                        <h3 class="insights-heading">Insights contábeis</h3>
+                                        <div id="insights-dre-visualizacoes" class="insights-list"></div>
+                                    </aside>
+                                </div>
                             </div>
                             <div class="dre-subpanel hidden" data-dre-subpanel="balancete">
                                 <div class="dre-explorer-wrap dre-explorer-wrap--full">
@@ -234,6 +250,7 @@
                                         <h3 class="block-title">Comparativo por cultura</h3>
                                         <p class="chart-desc">Performance contábil por cultura no recorte</p>
                                     </div>
+                                    <p class="dre-disclaimer">Custos sem cultura direta podem aparecer no consolidado. Rateios gerenciais por cultura serão refinados em camada futura.</p>
                                     <div id="dre-cultura-comp" class="dre-table-host"></div>
                                 </div>
                             </div>
