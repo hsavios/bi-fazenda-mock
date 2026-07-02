@@ -410,6 +410,19 @@ function toggleArrayValue(arr, value) {
     return [...set];
 }
 
+function optionValue(opt) {
+    if (opt == null) return null;
+    if (typeof opt === 'object') return opt.key ?? opt.id;
+    return opt;
+}
+
+function optionLabel(opt, labelFn) {
+    if (labelFn) return labelFn(opt);
+    if (opt == null) return 'Todas';
+    if (typeof opt === 'object') return opt.label ?? String(opt.key ?? opt.id ?? '');
+    return String(opt);
+}
+
 function renderOptionGroup(container, { title, options, selected, multi, onChange, labelFn }) {
     if (!container) return;
     const wrap = document.createElement('div');
@@ -419,8 +432,8 @@ function renderOptionGroup(container, { title, options, selected, multi, onChang
     opts.className = 'filter-options';
 
     options.forEach(opt => {
-        const value = typeof opt === 'object' ? opt.key ?? opt.id : opt;
-        const label = labelFn ? labelFn(opt) : (typeof opt === 'object' ? opt.label : opt);
+        const value = optionValue(opt);
+        const label = optionLabel(opt, labelFn);
         const isActive = multi
             ? (selected || []).includes(value)
             : selected === value || (value == null && !selected);
