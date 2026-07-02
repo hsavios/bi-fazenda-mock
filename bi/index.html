@@ -1,13 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=5.5">
+    <link rel="stylesheet" href="css/styles.css?v=5.6">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=5.5"></script>
+    <script type="module" src="js/app.js?v=5.6"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -361,30 +361,84 @@
 
                 <!-- Operações -->
                 <section id="operacoes" class="view-panel dashboard-section" data-view="operacoes">
-                    <div class="operations-layout">
-                        <header class="view-head view-head--compact">
-                            <h2>Análise operacional</h2>
-                            <p class="view-subtitle">Clique nos gráficos para detalhar talhões e máquinas</p>
+                    <div class="operations-layout field-premium">
+                        <header class="field-page-head">
+                            <div class="field-page-head-text">
+                                <h2>Performance da Safra</h2>
+                                <p class="view-subtitle">Produtividade, custos e resultado por talhão</p>
+                            </div>
+                            <nav id="field-filter-breadcrumb" class="field-breadcrumb" aria-label="Contexto dos filtros"></nav>
                         </header>
-                        <div class="operations-grid">
-                            <div class="chart-card">
-                                <h3>Pareto de custos por talhão</h3>
-                                <p class="chart-desc">Top 8 · concentração acumulada</p>
-                                <div class="chart-body"><div id="chart-pareto-talhao" class="chart"></div></div>
+                        <div class="field-kpi-strip" id="kpi-operacoes"></div>
+                        <div class="field-segmented" role="tablist" aria-label="Visões operacionais">
+                            <button type="button" class="field-segment active" data-field-subtab="talhoes" role="tab" aria-selected="true">Talhões</button>
+                            <button type="button" class="field-segment" data-field-subtab="visualizacoes" role="tab" aria-selected="false">Visualizações</button>
+                            <button type="button" class="field-segment" data-field-subtab="maquinas" role="tab" aria-selected="false">Máquinas</button>
+                            <button type="button" class="field-segment" data-field-subtab="apontamentos" role="tab" aria-selected="false">Apontamentos</button>
+                        </div>
+                        <div class="field-main">
+                            <div class="field-subpanel" data-field-subpanel="talhoes">
+                                <div class="field-statement-wrap">
+                                    <div id="field-performance-table" class="field-performance-host"></div>
+                                </div>
+                                <div class="field-insights-block">
+                                    <h3 class="block-title">Insights de performance</h3>
+                                    <div id="insights-field-talhoes" class="insights-list"></div>
+                                </div>
                             </div>
-                            <div class="chart-card">
-                                <h3>Heatmap talhão × cultura</h3>
-                                <p class="chart-desc">Intensidade de custo operacional</p>
-                                <div class="chart-body"><div id="chart-heatmap-talhao" class="chart"></div></div>
+                            <div class="field-subpanel hidden" data-field-subpanel="visualizacoes">
+                                <header class="field-viz-head">
+                                    <h3 class="block-title">Visualizações da Safra</h3>
+                                    <p class="chart-desc">Análises visuais de produtividade, custo e ganho/perda</p>
+                                </header>
+                                <div class="field-viz-grid">
+                                    <div class="chart-card">
+                                        <h3>Produtividade × Custo/ha</h3>
+                                        <p class="chart-desc">Bolha = resultado · clique para detalhar talhão</p>
+                                        <div class="chart-body"><div id="chart-scatter-prod-custo" class="chart chart--field"></div></div>
+                                    </div>
+                                    <div class="chart-card">
+                                        <h3>Ganho/perda vs média da cultura</h3>
+                                        <p class="chart-desc">Impacto econômico estimado por produtividade</p>
+                                        <div class="chart-body"><div id="chart-ganho-perda" class="chart chart--field"></div></div>
+                                    </div>
+                                    <div class="chart-card">
+                                        <h3>Pareto de custos por talhão</h3>
+                                        <p class="chart-desc">Top 8 · concentração acumulada</p>
+                                        <div class="chart-body"><div id="chart-pareto-talhao" class="chart chart--field"></div></div>
+                                    </div>
+                                    <div class="chart-card">
+                                        <h3>Heatmap talhão × cultura</h3>
+                                        <p class="chart-desc">Intensidade de custo/ha operacional</p>
+                                        <div class="chart-body"><div id="chart-heatmap-talhao" class="chart chart--field"></div></div>
+                                    </div>
+                                    <div class="chart-card">
+                                        <h3>Ranking de resultado por talhão</h3>
+                                        <p class="chart-desc">Top 8 talhões por resultado estimado</p>
+                                        <div class="chart-body"><div id="chart-ranking-talhao" class="chart chart--field"></div></div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="chart-card">
-                                <h3>Ranking de resultado por talhão</h3>
-                                <p class="chart-desc">Top 8 talhões</p>
-                                <div class="chart-body"><div id="chart-ranking-talhao" class="chart"></div></div>
+                            <div class="field-subpanel hidden" data-field-subpanel="maquinas">
+                                <header class="field-viz-head">
+                                    <h3 class="block-title">Máquinas e recursos</h3>
+                                    <p class="chart-desc">Horas, custo e participação no operacional</p>
+                                </header>
+                                <div class="field-kpi-strip field-kpi-strip--compact" id="kpi-maquinas"></div>
+                                <div id="field-maquinas-table" class="field-maquinas-host"></div>
+                                <div class="field-viz-grid field-viz-grid--compact">
+                                    <div class="chart-card">
+                                        <h3>Horas × Custo por máquina</h3>
+                                        <div class="chart-body"><div id="chart-maquinas-viz" class="chart chart--field"></div></div>
+                                    </div>
+                                    <div class="chart-card">
+                                        <h3>Ranking custo/hora</h3>
+                                        <div class="chart-body"><div id="chart-maquinas-custo-hora" class="chart chart--field"></div></div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="chart-card">
-                                <h3>Uso de máquinas — horas e custo</h3>
-                                <div class="chart-body"><div id="chart-maquinas" class="chart"></div></div>
+                            <div class="field-subpanel hidden" data-field-subpanel="apontamentos">
+                                <div id="field-apontamentos-host" class="field-apontamentos-host"></div>
                             </div>
                         </div>
                     </div>

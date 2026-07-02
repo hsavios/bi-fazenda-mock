@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --bg: #e8ede9;
     --bg-subtle: #f2f5f2;
     --surface: #ffffff;
@@ -1900,6 +1900,451 @@ th.cash-matrix--hot {
     line-height: 1.4;
 }
 
+/* ─── Performance da Safra (Operações) ─── */
+.field-premium {
+    gap: 0.45rem;
+    overflow: hidden;
+}
+
+.field-page-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    flex-shrink: 0;
+}
+
+.field-page-head-text h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent-dark);
+    margin: 0;
+}
+
+.field-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    font-size: 0.68rem;
+}
+
+.field-breadcrumb-item {
+    background: linear-gradient(135deg, #f0f7f2 0%, #e8f0ea 100%);
+    border: 1px solid var(--border-light);
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    color: var(--accent-dark);
+    font-weight: 600;
+}
+
+.field-breadcrumb-item--muted { color: var(--muted); font-weight: 500; }
+
+.field-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem;
+    flex-shrink: 0;
+}
+
+@media (min-width: 900px) {
+    .field-kpi-strip { grid-template-columns: repeat(4, 1fr); }
+    .field-kpi-strip:not(.field-kpi-strip--compact) {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+}
+
+.field-kpi-strip--compact {
+    margin-bottom: 0.45rem;
+}
+
+@media (min-width: 900px) {
+    .field-kpi-strip--compact { grid-template-columns: repeat(5, 1fr); }
+}
+
+.field-kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.6rem;
+    min-height: 68px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.08rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.field-kpi-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--accent-light);
+    opacity: 0.45;
+}
+
+.field-kpi-card--positive::before { background: var(--positive); opacity: 1; }
+.field-kpi-card--critical::before { background: var(--negative); opacity: 1; }
+.field-kpi-card--warn::before { background: #b45309; opacity: 1; }
+
+.field-kpi-card--clickable { cursor: pointer; }
+.field-kpi-card--clickable:hover,
+.field-kpi-card--clickable:focus-visible {
+    border-color: rgba(45, 106, 79, 0.35);
+    box-shadow: var(--shadow-sm);
+    outline: none;
+}
+
+.field-kpi-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+}
+
+.field-kpi-value {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--accent-dark);
+    line-height: 1.2;
+}
+
+.field-kpi-hint { font-size: 0.6rem; color: var(--muted); }
+
+.field-kpi-action {
+    font-size: 0.58rem;
+    color: var(--accent);
+    font-weight: 600;
+    margin-top: auto;
+}
+
+.field-segmented {
+    display: inline-flex;
+    gap: 0.2rem;
+    padding: 0.2rem;
+    background: #eef3ef;
+    border-radius: 999px;
+    border: 1px solid var(--border-light);
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+
+.field-segment {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s;
+}
+
+.field-segment.active {
+    background: var(--surface);
+    color: var(--accent-dark);
+    box-shadow: var(--shadow-sm);
+}
+
+.field-main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.field-subpanel:not(.hidden) {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    overflow: hidden;
+}
+
+.field-statement-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.field-performance-host {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.field-performance-shell {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.field-performance-header {
+    padding: 0.55rem 0.85rem;
+    border-bottom: 1px solid var(--border-light);
+    background: linear-gradient(180deg, #f8fbf9 0%, #f4f8f5 100%);
+    flex-shrink: 0;
+}
+
+.field-performance-header h3 {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.field-performance-header p {
+    margin: 0.15rem 0 0;
+    font-size: 0.62rem;
+    color: var(--muted);
+}
+
+.field-performance-table {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.field-performance-head,
+.field-performance-row {
+    display: grid;
+    grid-template-columns:
+        minmax(72px, 0.9fr) minmax(64px, 0.8fr) minmax(52px, 0.55fr)
+        minmax(48px, 0.5fr) minmax(52px, 0.55fr) minmax(56px, 0.6fr)
+        minmax(72px, 0.7fr) minmax(72px, 0.7fr) minmax(68px, 0.65fr)
+        minmax(64px, 0.6fr) minmax(80px, 0.75fr) minmax(56px, 0.55fr)
+        minmax(80px, 0.75fr) minmax(88px, 0.85fr);
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.field-performance-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f2f7f3;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+    letter-spacing: 0.03em;
+}
+
+.field-performance-row {
+    width: 100%;
+    border: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    background: transparent;
+    text-align: left;
+    font: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.field-performance-row:hover { background: rgba(20, 83, 45, 0.045); }
+.field-performance-row--positive { border-left: 3px solid var(--positive); }
+.field-performance-row--warning { border-left: 3px solid #b45309; }
+.field-performance-row--critical { border-left: 3px solid var(--negative); }
+
+.field-number { text-align: right; font-variant-numeric: tabular-nums; }
+
+.field-talhao-label strong { color: var(--accent-dark); }
+
+.field-metric-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: 1.4em;
+}
+
+.field-metric-bar {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 70%;
+    max-width: 100%;
+    background: rgba(45, 106, 79, 0.12);
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.field-value-positive { color: var(--positive); font-weight: 600; }
+.field-value-negative { color: var(--negative); font-weight: 600; }
+
+.performance-chip {
+    display: inline-block;
+    font-size: 0.58rem;
+    font-weight: 700;
+    padding: 0.12rem 0.38rem;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.performance-chip--positive { background: rgba(64, 145, 108, 0.12); color: var(--positive); }
+.performance-chip--warn { background: rgba(180, 83, 9, 0.12); color: #b45309; }
+.performance-chip--critical { background: rgba(193, 18, 31, 0.1); color: var(--negative); }
+
+.field-insights-block {
+    flex-shrink: 0;
+    max-height: 28%;
+    overflow-y: auto;
+}
+
+.field-viz-head { flex-shrink: 0; }
+
+.field-viz-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--content-gap);
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+@media (min-width: 900px) {
+    .field-viz-grid { grid-template-columns: repeat(2, 1fr); }
+    .field-viz-grid--compact { grid-template-columns: repeat(2, 1fr); }
+}
+
+.chart--field { min-height: 200px; height: 200px; }
+
+.field-maquinas-host {
+    flex-shrink: 0;
+    max-height: 42%;
+    overflow: auto;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+
+.field-maquinas-shell { display: flex; flex-direction: column; }
+
+.field-maquinas-head,
+.field-maquina-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr) repeat(4, minmax(64px, 0.7fr)) minmax(88px, 0.85fr);
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.field-maquinas-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f2f7f3;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.field-maquina-row {
+    width: 100%;
+    border: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    background: transparent;
+    text-align: left;
+    font: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.field-maquina-row:hover { background: rgba(20, 83, 45, 0.045); }
+
+.field-apontamentos-host {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.field-apontamentos-fallback {
+    max-width: 520px;
+    text-align: center;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 1.5rem 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.field-apontamentos-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+.field-apontamentos-fallback h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+    color: var(--accent-dark);
+}
+
+.field-apontamentos-fallback p {
+    margin: 0 0 0.65rem;
+    font-size: 0.74rem;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.field-apontamentos-note { font-size: 0.7rem !important; }
+
+.field-apontamentos-list {
+    text-align: left;
+    margin: 0.75rem auto;
+    padding-left: 1.25rem;
+    font-size: 0.72rem;
+    color: var(--accent-dark);
+    line-height: 1.6;
+}
+
+.field-apontamentos-future {
+    font-size: 0.65rem !important;
+    font-style: italic;
+}
+
+.field-empty-state {
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.74rem;
+}
+
+@media (max-width: 1199px) {
+    .field-col-hide-sm { display: none; }
+    .field-performance-head,
+    .field-performance-row {
+        grid-template-columns:
+            minmax(72px, 1fr) minmax(64px, 0.9fr) minmax(48px, 0.6fr)
+            minmax(56px, 0.65fr) minmax(68px, 0.7fr) minmax(80px, 0.8fr)
+            minmax(80px, 0.8fr) minmax(88px, 0.85fr);
+    }
+}
+
 /* ─── Drill-down ─── */
 .drilldown-backdrop {
     position: fixed;
@@ -2186,22 +2631,15 @@ body.drilldown-open { overflow: hidden; }
         min-height: 0;
     }
 
-    /* Operações 2×2 */
-    .operations-layout {
-        display: grid;
-        grid-template-rows: auto minmax(0, 1fr);
-        gap: var(--content-gap);
-    }
-
-    .operations-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-rows: repeat(2, minmax(0, 1fr));
-        gap: var(--content-gap);
+    /* Operações — Performance da Safra */
+    .operations-layout.field-premium {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
         min-height: 0;
     }
 
-    .chart { min-height: 0; }
+    .field-main { flex: 1; min-height: 0; }
 
     /* Comercialização */
     .commercial-layout {

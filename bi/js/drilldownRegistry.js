@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Registry central de drill-down — cobertura, resolvers e openDataDrilldown.
  *
  * Mapa de cobertura (auditoria):
@@ -24,9 +24,13 @@
  * caixa | cash-matrix | cashMatrixCell | ok
  * caixa | chart-saldo | cashMatrixCell | ok
  * caixa | movimentos | cashMovement | ok
- * operacoes | pareto | talhao | ok
- * operacoes | heatmap | heatmapCell | ok
- * operacoes | ranking-talhao | talhao | ok
+ * operacoes | field-table | talhaoPerformance | ok
+ * operacoes | field-kpis | fieldKpi/talhaoPerformance | ok
+ * operacoes | pareto | talhaoPerformance | ok
+ * operacoes | heatmap | talhaoPerformance | ok
+ * operacoes | ranking-talhao | talhaoPerformance | ok
+ * operacoes | scatter-prod-custo | talhaoPerformance | ok
+ * operacoes | ganho-perda | talhaoPerformance | ok
  * operacoes | maquinas | machine | ok
  * perguntas | decision-cards | question | ok
  */
@@ -36,25 +40,29 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.5';
+} from './api.js?v=5.6';
 import {
     aggregateDreByCulture,
     buildCultureInsights,
     buildStockInsights,
     buildTalhaoInsight
-} from './insights.js?v=5.5';
+} from './insights.js?v=5.6';
 import {
     buildDecisionDrilldown,
     buildCommercialSummary,
     aggregateCashByMonth
-} from './decisionQuestions.js?v=5.5';
+} from './decisionQuestions.js?v=5.6';
 import {
     getCashCellDetails,
     groupCashMovementsByCategory,
     formatMonthLabel,
     CASH_INDICATORS
-} from './cashFlow.js?v=5.5';
-import { openDrilldown } from './drilldown.js?v=5.5';
+} from './cashFlow.js?v=5.6';
+import {
+    buildTalhaoPerformanceModel,
+    getTalhaoPerformanceRow
+} from './fieldPerformance.js?v=5.6';
+import { openDrilldown } from './drilldown.js?v=5.6';
 
 const COVERAGE = [];
 
@@ -165,6 +173,107 @@ function buildCultureDrill(cultura, data) {
         nextAction: 'Compare talhões e comercialização desta cultura nas abas Operações e Comercialização.',
         source: 'vw_dre_gerencial · vw_resultado_talhao'
     };
+}
+
+function buildTalhaoPerformanceDrill(talhaoCodigo, data, cultura = null) {
+    const model = buildTalhaoPerformanceModel(data.talhoes, data.produtividade);
+    const r = getTalhaoPerformanceRow(model, talhaoCodigo, cultura);
+    if (!r) return buildTalhaoDrill(talhaoCodigo, data);
+
+    const peers = model.rows.filter(x => x.cultura_nome === r.cultura_nome && x.talhao_codigo !== r.talhao_codigo)
+        .sort((a, b) => Number(b.resultado_ha) - Number(a.resultado_ha)).slice(0, 4);
+
+    const gpText = r.ganho_perda_valor_vs_media >= 0
+        ? `Ganho estimado de ${formatCurrencyCompact(r.ganho_perda_valor_vs_media)} vs benchmark interno da cultura.`
+        : `Perda estimada de ${formatCurrencyCompact(Math.abs(r.ganho_perda_valor_vs_media))} vs benchmark interno da cultura.`;
+
+    const interpretacao = r.status_tone === 'critical'
+        ? `${r.talhao_codigo} combina custo elevado com produtividade abaixo da média da cultura. Esse padrão indica perda de eficiência econômica e deve ser priorizado para investigação técnica.`
+        : r.desvio_produtividade_pct >= 0
+            ? `${r.talhao_codigo} apresenta produtividade acima da média de ${r.cultura_nome} com custo/sc competitivo.`
+            : `${r.talhao_codigo} opera abaixo do benchmark de produtividade (${formatPct(r.desvio_produtividade_pct)}). ${gpText}`;
+
+    return {
+        type: 'talhaoPerformance',
+        title: `Talhão ${r.talhao_codigo}`,
+        subtitle: `${r.cultura_nome} · ${r.talhao_nome || ''} · ${r.classificacao}`.trim(),
+        status: r.status_tone === 'positive' ? 'ok' : r.status_tone === 'critical' ? 'critical' : 'attention',
+        statusLabel: r.status_chip,
+        metrics: [
+            { label: 'Área', value: formatNumber(r.area_ha, 0) + ' ha' },
+            { label: 'Produção', value: formatNumber(r.producao_sc, 0) + ' sc' },
+            { label: 'Produtividade', value: formatNumber(r.produtividade_sc_ha, 1) + ' sc/ha', highlight: true },
+            { label: 'Média da cultura', value: formatNumber(r.produtividade_media_cultura_sc_ha, 1) + ' sc/ha' },
+            { label: 'Desvio produtividade', value: formatPct(r.desvio_produtividade_pct) },
+            { label: 'Receita estimada', value: formatCurrency(r.receita_estimada) },
+            { label: 'Custo total', value: formatCurrency(r.custo_total) },
+            { label: 'Custo/ha', value: formatCurrency(r.custo_ha) },
+            { label: 'Custo/sc', value: formatCurrency(r.custo_sc) },
+            { label: 'Resultado', value: formatCurrency(r.resultado), highlight: true },
+            { label: 'Resultado/ha', value: formatCurrency(r.resultado_ha) },
+            { label: 'Resultado/sc', value: formatCurrency(r.resultado_sc) },
+            { label: 'Margem %', value: formatPct(r.margem_pct) },
+            { label: 'G/P vs média', value: formatCurrency(r.ganho_perda_valor_vs_media) },
+            { label: 'Classificação', value: r.classificacao }
+        ],
+        rows: peers.map(p => ({
+            label: p.talhao_codigo,
+            value: formatCurrencyCompact(p.resultado_ha) + '/ha',
+            meta: formatPct(p.desvio_produtividade_pct) + ' vs média'
+        })),
+        insight: {
+            title: 'Interpretação',
+            text: interpretacao,
+            tone: r.status_tone === 'positive' ? 'positive' : r.status_tone === 'critical' ? 'critical' : 'warn'
+        },
+        nextAction: 'Revisar manejo, operações realizadas, custo de máquinas e composição de insumos neste talhão.',
+        source: 'vw_resultado_talhao · vw_produtividade_talhao'
+    };
+}
+
+function buildFieldKpiDrill(kpiId, data) {
+    const model = buildTalhaoPerformanceModel(data.talhoes, data.produtividade);
+    const { rows } = model;
+    switch (kpiId) {
+        case 'field-melhor': {
+            const best = [...rows].sort((a, b) => Number(b.resultado_ha) - Number(a.resultado_ha))[0];
+            return best ? buildTalhaoPerformanceDrill(best.talhao_codigo, data, best.cultura_nome) : null;
+        }
+        case 'field-atencao': {
+            const at = rows.find(r => r.status_tone === 'critical') || rows[0];
+            return at ? buildTalhaoPerformanceDrill(at.talhao_codigo, data, at.cultura_nome) : null;
+        }
+        case 'field-ganho-perda':
+            return {
+                type: 'fieldKpi',
+                title: 'Ganho/perda agregado por produtividade',
+                subtitle: 'Estimado vs média interna da cultura',
+                metrics: [
+                    { label: 'Impacto total', value: formatCurrency(rows.reduce((s, r) => s + r.ganho_perda_valor_vs_media, 0)), highlight: true }
+                ],
+                rows: [...rows].sort((a, b) => Number(b.ganho_perda_valor_vs_media) - Number(a.ganho_perda_valor_vs_media))
+                    .slice(0, 8).map(r => ({
+                        label: r.talhao_codigo,
+                        value: formatCurrencyCompact(r.ganho_perda_valor_vs_media),
+                        meta: formatPct(r.desvio_produtividade_pct)
+                    })),
+                insight: { title: 'Metodologia', text: 'Estimativa via diferença de produtividade × área × preço médio/sc da receita.', tone: 'info' },
+                nextAction: 'Priorize talhões com maior perda estimada para investigação técnica.',
+                source: 'vw_resultado_talhao · vw_produtividade_talhao'
+            };
+        default:
+            return {
+                type: 'fieldKpi',
+                title: 'Performance da safra',
+                metrics: [{ label: 'Talhões analisados', value: String(rows.length), highlight: true }],
+                rows: rows.slice(0, 6).map(r => ({
+                    label: r.talhao_codigo,
+                    value: formatCurrencyCompact(r.resultado_ha) + '/ha',
+                    meta: r.status_chip
+                })),
+                source: 'vw_resultado_talhao · vw_produtividade_talhao'
+            };
+    }
 }
 
 function buildTalhaoDrill(talhaoCodigo, data) {
@@ -442,7 +551,7 @@ function buildWaterfallStepDrill(label, data) {
 
 function buildHeatmapCellDrill(talhao, cultura, data) {
     const row = (data.talhoes || []).find(t => t.talhao_codigo === talhao && t.cultura_nome === cultura);
-    if (row) return buildTalhaoDrill(talhao, data);
+    if (row) return buildTalhaoPerformanceDrill(talhao, data, cultura);
     if (Number.isFinite(Number(talhao)) || !talhao) {
         return fallbackDrill(`Talhão × ${cultura}`, { talhao, cultura }, 'vw_resultado_talhao');
     }
@@ -852,7 +961,11 @@ export function resolveDrilldown(type, context = {}) {
         case 'culture':
             return buildCultureDrill(context.cultura || context.name, data);
         case 'talhao':
-            return buildTalhaoDrill(context.talhaoCodigo || context.name, data);
+            return buildTalhaoPerformanceDrill(context.talhaoCodigo || context.name, data, context.cultura);
+        case 'talhaoPerformance':
+            return buildTalhaoPerformanceDrill(context.talhaoCodigo || context.name, data, context.cultura);
+        case 'fieldKpi':
+            return buildFieldKpiDrill(context.kpiId, data);
         case 'stockItem':
             return buildStockItemDrill(context.insumo || context.name, data);
         case 'commercialCulture':

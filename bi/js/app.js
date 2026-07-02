@@ -1,17 +1,17 @@
-import {
+﻿import {
     fetchView,
     formatNumber,
     formatCurrency,
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=5.5';
+} from './api.js?v=5.6';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
     buildStockPanelInsights,
     renderInsightCards
-} from './insights.js?v=5.5';
+} from './insights.js?v=5.6';
 import {
     buildDecisionQuestions,
     buildCommercialSummary,
@@ -19,12 +19,13 @@ import {
     renderDecisionCards,
     renderSelectedQuestionPanel,
     renderCommercialTable
-} from './decisionQuestions.js?v=5.5';
-import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.5';
-import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.5';
-import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.5';
-import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.5';
-import { aggregateCashByMonth } from './cashFlow.js?v=5.5';
+} from './decisionQuestions.js?v=5.6';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.6';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.6';
+import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.6';
+import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.6';
+import { renderOperacoesGerencial, initOperacoesSubtabs } from './operacoesGerencial.js?v=5.6';
+import { aggregateCashByMonth } from './cashFlow.js?v=5.6';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -36,7 +37,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=5.5';
+} from './charts.js?v=5.6';
 import {
     initFilters,
     loadFilterState,
@@ -48,7 +49,7 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=5.5';
+} from './filters.js?v=5.6';
 
 const charts = {};
 const chartsReady = new Set();
@@ -58,6 +59,7 @@ let selectedDecisionId = null;
 let selectedCashMonthKey = null;
 let selectedDreSubTab = 'demonstrativo';
 let selectedCaixaSubTab = 'matriz';
+let selectedOperacoesSubTab = 'talhoes';
 const DEBUG_BI = location.hostname === 'localhost' || location.search.includes('debug=1');
 const TABS = ['visao-geral', 'culturas', 'estoques', 'dre-gerencial', 'comercializacao', 'caixa', 'operacoes', 'perguntas', 'sobre'];
 const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
@@ -94,7 +96,7 @@ function rerenderDashboard() {
     renderDreGerencialTab(false);
     renderComercializacao(false);
     renderCaixaTab(false);
-    renderOperacoes(data.talhoes, data.maquinas, data.maoObra, false);
+    renderOperacoesTab(false);
     renderPerguntas();
     updateFilterBanners();
     filterUI?.updateChrome(filterState);
@@ -732,60 +734,16 @@ function renderDreGerencialTab(drawChart = false) {
 
 /* ─── Operações ─── */
 
-function renderOperacoes(talhoes, maquinas, _maoObra, drawChart = false) {
-    const sortedTalhoes = [...talhoes].sort((a, b) => Number(b.custo_total) - Number(a.custo_total));
-
-    if (!drawChart) return;
-
-    const paretoSlice = sortedTalhoes.slice(0, 8);
-    const paretoCodes = paretoSlice.map(t => t.talhao_codigo);
-    if (paretoSlice.length) {
-        setChart('chart-pareto-talhao', paretoOption(paretoCodes, paretoSlice.map(t => Number(t.custo_total))));
-        bindTalhaoChartClick('chart-pareto-talhao', paretoCodes, 'pareto');
-    }
-
-    const culturas = sortCultures([...new Set(talhoes.map(t => t.cultura_nome))]);
-    const talhaoCodes = [...new Set(talhoes.map(t => t.talhao_codigo))].slice(0, 8);
-    const heatMatrix = talhaoCodes.map(tc =>
-        culturas.map(cult => {
-            const row = talhoes.find(t => t.talhao_codigo === tc && t.cultura_nome === cult);
-            return row ? Number(row.custo_total) : 0;
-        })
-    );
-
-    if (talhaoCodes.length && culturas.length) {
-        setChart('chart-heatmap-talhao', heatmapOption(culturas, talhaoCodes, heatMatrix));
-        bindChartDrill('chart-heatmap-talhao', params => {
-            const d = params.data;
-            if (!d || d.length < 2) return;
-            const cultura = culturas[d[0]];
-            const talhao = talhaoCodes[d[1]];
-            if (cultura && talhao) openDrill('heatmapCell', { cultura, talhao });
-        }, { section: 'operacoes', element: 'heatmap', type: 'heatmapCell' });
-    }
-
-    const byResult = [...talhoes].sort((a, b) => Number(b.resultado_estimado) - Number(a.resultado_estimado)).slice(0, 8);
-    const resultCodes = byResult.map(t => t.talhao_codigo);
-    if (byResult.length) {
-        setChart('chart-ranking-talhao', horizontalBarOption(
-            resultCodes,
-            byResult.map(t => Number(t.resultado_estimado)),
-            { color: CHART_COLORS.light, formatter: v => formatCurrency(v) }
-        ));
-        bindTalhaoChartClick('chart-ranking-talhao', resultCodes, 'ranking-talhao');
-    }
-
-    const maqSorted = [...maquinas].sort((a, b) => Number(b.horas_totais) - Number(a.horas_totais)).slice(0, 8);
-    if (maqSorted.length) {
-        setChart('chart-maquinas', comboBarLineOption(
-            maqSorted.map(m => m.equipamento_nome),
-            [{ name: 'Custo (R$)', data: maqSorted.map(m => Number(m.custo_total)) }],
-            [{ name: 'Horas', data: maqSorted.map(m => Number(m.horas_totais)) }]
-        ));
-        bindChartDrill('chart-maquinas', params => {
-            if (params.name) openMachineDrilldown(params.name);
-        }, { section: 'operacoes', element: 'maquinas', type: 'machine' });
-    }
+function renderOperacoesTab(drawChart = false) {
+    renderOperacoesGerencial({
+        store: getData(),
+        charts,
+        setChart,
+        onDrill: openDrill,
+        subTab: selectedOperacoesSubTab,
+        drawChart,
+        filterContext: getFilterContextLabel(filterState)
+    });
 }
 
 /* ─── Tab / load ─── */
@@ -824,11 +782,9 @@ function refreshChartsForTab(tabId) {
             case 'caixa':
                 renderCaixaTab(selectedCaixaSubTab === 'visualizacoes');
                 break;
-            case 'operacoes': {
-                const data = getData();
-                renderOperacoes(data.talhoes, data.maquinas, data.maoObra, true);
+            case 'operacoes':
+                renderOperacoesTab(selectedOperacoesSubTab === 'visualizacoes' || selectedOperacoesSubTab === 'maquinas');
                 break;
-            }
             case 'perguntas':
                 renderPerguntas();
                 break;
@@ -898,7 +854,7 @@ async function fetchAllViews(onProgress) {
         ['insumos', () => fetchView('vw_estoque_insumos_atual')],
         ['producao', () => fetchView('vw_estoque_producao_atual', { limit: '20' })],
         ['fluxo', () => fetchView('vw_fluxo_caixa_realizado', { order: 'data_movimento', limit: '40' })],
-        ['talhoes', () => fetchView('vw_resultado_talhao', { order: 'custo_total.desc', limit: '15' })],
+        ['talhoes', () => fetchView('vw_resultado_talhao', { order: 'custo_total.desc', limit: '200' })],
         ['maquinas', () => fetchView('vw_uso_maquinas_safra')],
         ['maoObra', () => fetchView('vw_horas_mao_obra_safra', { limit: '100' })]
     ];
@@ -1001,6 +957,12 @@ async function loadDashboard() {
             const onCaixaTab = getCurrentTabId() === 'caixa';
             renderCaixaTab(tab === 'visualizacoes');
             if (onCaixaTab) requestAnimationFrame(resizeVisibleCharts);
+        });
+        initOperacoesSubtabs(tab => {
+            selectedOperacoesSubTab = tab;
+            const onOpTab = getCurrentTabId() === 'operacoes';
+            renderOperacoesTab(tab === 'visualizacoes' || tab === 'maquinas');
+            if (onOpTab) requestAnimationFrame(resizeVisibleCharts);
         });
         setupChartResizeObserver();
         setupTabs();
