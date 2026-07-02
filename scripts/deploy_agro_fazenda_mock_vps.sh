@@ -173,20 +173,11 @@ log "Executando SQL consolidado em $DB_NAME..."
     cat "$FULL_SQL"
 } | docker exec -i "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -v ON_ERROR_STOP=1
 
-# Permissões no schema
-docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<EOSQL
-GRANT USAGE ON SCHEMA agro TO $APP_USER;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA agro TO $APP_USER;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA agro TO $APP_USER;
-ALTER DEFAULT PRIVILEGES IN SCHEMA agro GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO $APP_USER;
-ALTER DEFAULT PRIVILEGES IN SCHEMA agro GRANT USAGE, SELECT ON SEQUENCES TO $APP_USER;
-DO \$\$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'agro_mock_readonly') THEN
-    GRANT agro_mock_readonly TO $APP_USER;
-  END IF;
-END \$\$;
-EOSQL
+# Permissões no schema (docker exec -i obrigatório para o heredoc chegar ao psql)
+GRANT_SCRIPT="$SCRIPT_DIR/grant_agro_fazenda_mock.sh"
+chmod +x "$GRANT_SCRIPT"
+POSTGRES_USER="$PGUSER" POSTGRES_CONTAINER="$CONTAINER_NAME" AGRO_DB="$DB_NAME" AGRO_USER="$APP_USER" \
+    AGRO_PASS="$APP_PASSWORD" "$GRANT_SCRIPT"
 
 # --- Validação ---
 VALIDATION_OK="pulada"

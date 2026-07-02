@@ -163,4 +163,16 @@ if [[ $FAILURES -gt 0 ]]; then
     exit 1
 fi
 
+# Validar acesso como agro_mock_user (não apenas admin)
+if load_agro_secrets 2>/dev/null; then
+    APP_COUNT=$(docker exec -e PGPASSWORD="$AGRO_PASS" "$CONTAINER_NAME" \
+        psql -U "$AGRO_USER" -d "$DB_NAME" -tAc "SELECT COUNT(*) FROM agro.fazendas;" 2>/dev/null || echo "ERRO")
+    APP_COUNT=$(echo "$APP_COUNT" | tr -d '[:space:]')
+    if [[ "$APP_COUNT" == "ERRO" ]] || [[ -z "$APP_COUNT" ]]; then
+        log "ERRO: agro_mock_user não consegue ler agro.fazendas. Rode: ./scripts/grant_agro_fazenda_mock.sh"
+        exit 1
+    fi
+    log "Acesso app ($AGRO_USER): agro.fazendas = $APP_COUNT registro(s)"
+fi
+
 log "Validação concluída com sucesso."
