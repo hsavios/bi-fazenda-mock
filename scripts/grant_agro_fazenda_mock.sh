@@ -38,6 +38,8 @@ ALTER ROLE $APP_USER SET search_path TO agro, public;
 DO \$\$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'agro_mock_readonly') THEN
+    GRANT USAGE ON SCHEMA agro TO agro_mock_readonly;
+    GRANT SELECT ON ALL TABLES IN SCHEMA agro TO agro_mock_readonly;
     GRANT agro_mock_readonly TO $APP_USER;
   END IF;
 END \$\$;

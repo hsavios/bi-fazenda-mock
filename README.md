@@ -37,7 +37,10 @@ agro-fazenda-mock/
 │   ├── validate_agro_fazenda_mock.sh
 │   ├── connect_agro_fazenda_mock.sh
 │   ├── backup_agro_fazenda_mock.sh
+│   ├── grant_agro_fazenda_mock.sh
 │   ├── build_agro_fazenda_mock_full.sh
+│   ├── deploy_bi_vps.sh
+│   ├── validate_bi_vps.sh
 │   └── lib/agro_secrets.sh
 ├── docs/
 │   ├── deploy-agro-fazenda-mock-postgresql.md
@@ -91,6 +94,14 @@ Requisitos: Docker com container `postgres` rodando.
 ./scripts/backup_agro_fazenda_mock.sh
 ```
 
+### 6. Dashboard BI (opcional)
+
+```bash
+./scripts/deploy_bi_vps.sh
+```
+
+Acesse: http://127.0.0.1:8088 (ou túnel SSH a partir do seu PC)
+
 ---
 
 ## Credenciais
@@ -137,6 +148,7 @@ Todos os scripts bloqueiam uso acidental do container errado.
 ## Documentação
 
 - [Deploy na VPS](docs/deploy-agro-fazenda-mock-postgresql.md)
+- [Deploy do BI](docs/deploy-bi-vps.md)
 - [Modelo de dados](docs/modelo-dados-agro-fazenda-mock.md)
 - [Operação e manutenção](docs/operacao-e-manutencao.md)
 - [Deploy validado na VPS](DEPLOY_OK.md)

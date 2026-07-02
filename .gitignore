@@ -3,5 +3,7 @@ backups/
 *.dump
 *.backup
 .env
+.env.bi
+docker-compose.bi.override.yml
 *.env
 .secrets/
