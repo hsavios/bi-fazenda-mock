@@ -5,7 +5,7 @@ import {
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=4.7';
+} from './api.js?v=4.8';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
@@ -15,7 +15,7 @@ import {
     buildTalhaoInsight,
     buildFinancialInsight,
     renderInsightCards
-} from './insights.js?v=4.7';
+} from './insights.js?v=4.8';
 import {
     buildDecisionQuestions,
     buildDecisionDrilldown,
@@ -28,8 +28,8 @@ import {
     renderCommercialTable,
     renderCashMatrix,
     renderCashMobilePanel
-} from './decisionQuestions.js?v=4.7';
-import { initDrilldown, openDrilldown, closeDrilldown } from './drilldown.js?v=4.7';
+} from './decisionQuestions.js?v=4.8';
+import { initDrilldown, openDrilldown, closeDrilldown } from './drilldown.js?v=4.8';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -41,7 +41,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=4.7';
+} from './charts.js?v=4.8';
 import {
     initFilters,
     loadFilterState,
@@ -53,7 +53,7 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=4.7';
+} from './filters.js?v=4.8';
 
 const charts = {};
 const chartsReady = new Set();
