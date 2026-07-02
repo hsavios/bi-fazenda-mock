@@ -11,7 +11,10 @@ let bodyEl;
 let insightEl;
 let closeBtn;
 
-export function initDrilldown() {
+let onCloseCallback = null;
+
+export function initDrilldown(onClose) {
+    onCloseCallback = typeof onClose === 'function' ? onClose : null;
     backdropEl = document.getElementById('drilldown-backdrop');
     drawerEl = document.getElementById('drilldown-drawer');
     titleEl = document.getElementById('drilldown-title');
@@ -88,4 +91,5 @@ export function closeDrilldown() {
     drawerEl?.classList.remove('open');
     drawerEl?.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('drilldown-open');
+    onCloseCallback?.();
 }

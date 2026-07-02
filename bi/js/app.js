@@ -5,7 +5,7 @@ import {
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=4.0';
+} from './api.js?v=4.1';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
@@ -14,10 +14,9 @@ import {
     buildStockPanelInsights,
     buildTalhaoInsight,
     buildFinancialInsight,
-    buildOperationsInsights,
     renderInsightCards
-} from './insights.js?v=4.0';
-import { initDrilldown, openDrilldown } from './drilldown.js?v=4.0';
+} from './insights.js?v=4.1';
+import { initDrilldown, openDrilldown } from './drilldown.js?v=4.1';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -29,10 +28,12 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=4.0';
+} from './charts.js?v=4.1';
 
 const charts = {};
 const chartsReady = new Set();
+let chartResizeObserver = null;
+const DEBUG_BI = location.hostname === 'localhost' || location.search.includes('debug=1');
 const TABS = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'operacoes', 'sobre'];
 const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
 
@@ -56,8 +57,30 @@ function setChart(id, option) {
     return chart;
 }
 
+function resizeVisibleCharts() {
+    const activePanel = document.querySelector('.view-panel.active');
+    if (!activePanel) return;
+    let count = 0;
+    activePanel.querySelectorAll('.chart').forEach(node => {
+        const chart = charts[node.id];
+        if (chart) {
+            chart.resize();
+            count += 1;
+        }
+    });
+    if (DEBUG_BI) console.log('[BI] charts resized', count);
+}
+
 function resizeCharts() {
-    Object.values(charts).forEach(c => c?.resize());
+    resizeVisibleCharts();
+}
+
+function setupChartResizeObserver() {
+    if (chartResizeObserver || typeof ResizeObserver === 'undefined') return;
+    chartResizeObserver = new ResizeObserver(() => {
+        resizeVisibleCharts();
+    });
+    document.querySelectorAll('.chart-body').forEach(el => chartResizeObserver.observe(el));
 }
 
 function sortCultures(names) {
@@ -261,15 +284,10 @@ function openMachineDrilldown(equipamentoNome) {
 
 function bindDrilldownClicks() {
     document.getElementById('culture-cards')?.addEventListener('click', e => {
-        const card = e.target.closest('[data-culture]');
+        const row = e.target.closest('[data-culture]');
         const btn = e.target.closest('[data-analyze]');
-        const nome = card?.dataset.culture || btn?.dataset.analyze;
+        const nome = row?.dataset.culture || btn?.dataset.analyze;
         if (nome) openCultureDrilldown(nome);
-    });
-
-    document.getElementById('cards-talhao')?.addEventListener('click', e => {
-        const card = e.target.closest('[data-talhao]');
-        if (card) openTalhaoDrilldown(card.dataset.talhao);
     });
 
     document.getElementById('ranking-insumos')?.addEventListener('click', e => {
@@ -278,8 +296,18 @@ function bindDrilldownClicks() {
     });
 
     document.getElementById('cards-dre')?.addEventListener('click', e => {
-        const card = e.target.closest('[data-dre-culture]');
-        if (card) openFinancialDrilldown(card.dataset.dreCulture);
+        const row = e.target.closest('[data-dre-culture]');
+        if (row) openFinancialDrilldown(row.dataset.dreCulture);
+    });
+}
+
+function bindTalhaoChartClick(chartId, talhaoCodes) {
+    const chart = charts[chartId];
+    if (!chart) return;
+    chart.off('click');
+    chart.on('click', params => {
+        const code = params.name || talhaoCodes[params.dataIndex];
+        if (code) openTalhaoDrilldown(code);
     });
 }
 
@@ -343,7 +371,7 @@ function renderCulturas(resultado, margem, produtividade, dre, drawChart = false
 
     const container = el('culture-cards');
     if (container) {
-        container.innerHTML = culturas.map(nome => {
+        const rows = culturas.map(nome => {
             const res = resultado.find(r => r.cultura_nome === nome) || {};
             const dreRow = byCulture.find(c => c.cultura_nome === nome) || {};
             const mar = margemMap.get(nome) || {};
@@ -354,26 +382,37 @@ function renderCulturas(resultado, margem, produtividade, dre, drawChart = false
             const margemPct = receita ? (resultadoVal / receita) * 100 : 0;
             const st = statusFromMargin(margemPct);
             const share = formatPct(pctShare(receita, receitaTotal));
-
             return `
-                <article class="culture-card${st.tone === 'critical' ? ' culture-card--negative' : ''}" data-culture="${nome}">
-                    <div class="culture-card-header">
-                        <h3>${nome}</h3>
-                        <span class="status-pill status-pill--${st.status}">${st.label}</span>
-                    </div>
-                    <dl class="culture-metrics">
-                        <div class="metric"><dt>Receita</dt><dd title="${formatCurrency(receita)}">${formatCurrencyCompact(receita)}</dd></div>
-                        <div class="metric"><dt>Custo</dt><dd title="${formatCurrency(custo)}">${formatCurrencyCompact(custo)}</dd></div>
-                        <div class="metric"><dt>Margem</dt><dd title="${formatCurrency(resultadoVal)}">${formatCurrencyCompact(resultadoVal)}</dd></div>
-                        <div class="metric"><dt>Produtividade</dt><dd>${prod != null ? formatNumber(prod, 1) + ' sc/ha' : '—'}</dd></div>
-                    </dl>
-                    <div class="culture-card-footer">
-                        <span class="culture-share">${share} da receita</span>
-                        <button type="button" class="btn-analyze" data-analyze="${nome}">Analisar</button>
-                    </div>
-                </article>
+                <tr data-culture="${nome}">
+                    <td class="cell-name">${nome}</td>
+                    <td title="${formatCurrency(receita)}">${formatCurrencyCompact(receita)}</td>
+                    <td title="${formatCurrency(custo)}">${formatCurrencyCompact(custo)}</td>
+                    <td title="${formatCurrency(resultadoVal)}">${formatCurrencyCompact(resultadoVal)}</td>
+                    <td>${prod != null ? formatNumber(prod, 1) : '—'}</td>
+                    <td>${share}</td>
+                    <td><span class="status-pill status-pill--${st.status}">${st.label}</span></td>
+                    <td class="cell-actions"><button type="button" class="btn-analyze" data-analyze="${nome}">Analisar</button></td>
+                </tr>
             `;
         }).join('');
+
+        container.innerHTML = `
+            <table class="compact-table">
+                <thead>
+                    <tr>
+                        <th>Cultura</th>
+                        <th>Receita</th>
+                        <th>Custo</th>
+                        <th>Margem</th>
+                        <th>sc/ha</th>
+                        <th>Part.</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        `;
     }
 
     if (!drawChart) return;
@@ -496,21 +535,37 @@ function renderFinanceiro(dre, fluxo, drawChart = false) {
 
     const dreContainer = el('cards-dre');
     if (dreContainer) {
-        dreContainer.innerHTML = sortCultures(byCulture.map(d => d.cultura_nome)).map(name => {
+        const rows = sortCultures(byCulture.map(d => d.cultura_nome)).map(name => {
             const d = byCulture.find(r => r.cultura_nome === name);
             const mp = d.receita_bruta ? (d.resultado / d.receita_bruta) * 100 : 0;
             const st = statusFromMargin(mp);
             return `
-                <article class="dre-card" data-dre-culture="${name}">
-                    <div class="dre-card-header">
-                        <span class="dre-card-title">${name}</span>
-                        <span class="status-pill status-pill--${st.status}">${formatPct(mp)}</span>
-                    </div>
-                    <div class="data-row"><span>Receita</span><span>${formatCurrencyCompact(d.receita_bruta)}</span></div>
-                    <div class="data-row"><span>Resultado</span><span>${formatCurrencyCompact(d.resultado)}</span></div>
-                </article>
+                <tr data-dre-culture="${name}">
+                    <td class="cell-name">${name}</td>
+                    <td>${formatCurrencyCompact(d.receita_bruta)}</td>
+                    <td>${formatCurrencyCompact(d.custos_variaveis)}</td>
+                    <td>${formatCurrencyCompact(d.custos_fixos)}</td>
+                    <td>${formatCurrencyCompact(d.resultado)}</td>
+                    <td><span class="status-pill status-pill--${st.status}">${formatPct(mp)}</span></td>
+                </tr>
             `;
         }).join('');
+
+        dreContainer.innerHTML = `
+            <table class="compact-table">
+                <thead>
+                    <tr>
+                        <th>Cultura</th>
+                        <th>Receita</th>
+                        <th>Custos var.</th>
+                        <th>Despesas</th>
+                        <th>Resultado</th>
+                        <th>Margem</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        `;
     }
 
     if (!drawChart) return;
@@ -539,56 +594,40 @@ function renderFinanceiro(dre, fluxo, drawChart = false) {
 
 /* ─── Operações ─── */
 
-function renderOperacoes(talhoes, maquinas, maoObra, drawChart = false) {
+function renderOperacoes(talhoes, maquinas, _maoObra, drawChart = false) {
     const sortedTalhoes = [...talhoes].sort((a, b) => Number(b.custo_total) - Number(a.custo_total));
-    const topTalhoes = sortedTalhoes.slice(0, 6);
-
-    const talhaoContainer = el('cards-talhao');
-    if (talhaoContainer) {
-        talhaoContainer.innerHTML = topTalhoes.map(t => `
-            <article class="talhao-card" data-talhao="${t.talhao_codigo}">
-                <div class="talhao-card-title">${t.talhao_codigo} · ${t.cultura_nome}</div>
-                <div class="talhao-card-rows">
-                    <span>Custo: <strong>${formatCurrencyCompact(t.custo_total)}</strong></span>
-                    <span>Resultado: <strong>${formatCurrencyCompact(t.resultado_estimado)}</strong></span>
-                    <span>Produção: <strong>${formatNumber(t.producao_sc, 0)} sc</strong></span>
-                </div>
-            </article>
-        `).join('');
-    }
-
-    renderInsightCards(el('insights-operacoes'), buildOperationsInsights(store));
 
     if (!drawChart) return;
 
-    const paretoSlice = sortedTalhoes.slice(0, 10);
+    const paretoSlice = sortedTalhoes.slice(0, 8);
+    const paretoCodes = paretoSlice.map(t => t.talhao_codigo);
     if (paretoSlice.length) {
-        setChart('chart-pareto-talhao', paretoOption(
-            paretoSlice.map(t => t.talhao_codigo),
-            paretoSlice.map(t => Number(t.custo_total))
-        ));
+        setChart('chart-pareto-talhao', paretoOption(paretoCodes, paretoSlice.map(t => Number(t.custo_total))));
+        bindTalhaoChartClick('chart-pareto-talhao', paretoCodes);
     }
 
     const culturas = sortCultures([...new Set(talhoes.map(t => t.cultura_nome))]);
     const talhaoCodes = [...new Set(talhoes.map(t => t.talhao_codigo))].slice(0, 8);
-    const heatMatrix = talhaoCodes.map(tc => {
-        return culturas.map(cult => {
+    const heatMatrix = talhaoCodes.map(tc =>
+        culturas.map(cult => {
             const row = talhoes.find(t => t.talhao_codigo === tc && t.cultura_nome === cult);
             return row ? Number(row.custo_total) : 0;
-        });
-    });
+        })
+    );
 
     if (talhaoCodes.length && culturas.length) {
         setChart('chart-heatmap-talhao', heatmapOption(culturas, talhaoCodes, heatMatrix));
     }
 
     const byResult = [...talhoes].sort((a, b) => Number(b.resultado_estimado) - Number(a.resultado_estimado)).slice(0, 8);
+    const resultCodes = byResult.map(t => t.talhao_codigo);
     if (byResult.length) {
         setChart('chart-ranking-talhao', horizontalBarOption(
-            byResult.map(t => t.talhao_codigo),
+            resultCodes,
             byResult.map(t => Number(t.resultado_estimado)),
             { color: CHART_COLORS.light, formatter: v => formatCurrency(v) }
         ));
+        bindTalhaoChartClick('chart-ranking-talhao', resultCodes);
     }
 
     const maqSorted = [...maquinas].sort((a, b) => Number(b.horas_totais) - Number(a.horas_totais)).slice(0, 8);
@@ -610,7 +649,10 @@ function renderOperacoes(talhoes, maquinas, maoObra, drawChart = false) {
 
 function refreshChartsForTab(tabId) {
     if (chartsReady.has(tabId)) {
-        resizeCharts();
+        requestAnimationFrame(() => {
+            resizeVisibleCharts();
+            requestAnimationFrame(resizeVisibleCharts);
+        });
         return;
     }
     try {
@@ -634,7 +676,10 @@ function refreshChartsForTab(tabId) {
                 break;
         }
         chartsReady.add(tabId);
-        resizeCharts();
+        requestAnimationFrame(() => {
+            resizeVisibleCharts();
+            requestAnimationFrame(resizeVisibleCharts);
+        });
     } catch (err) {
         console.error('Erro ao renderizar gráficos:', tabId, err);
     }
@@ -745,8 +790,11 @@ async function loadDashboard() {
         renderOperacoes(data.talhoes, data.maquinas, data.maoObra, false);
 
         showDashboard();
-        initDrilldown();
+        initDrilldown(() => {
+            requestAnimationFrame(resizeVisibleCharts);
+        });
         bindDrilldownClicks();
+        setupChartResizeObserver();
         setupTabs();
         refreshChartsForTab('visao-geral');
     } catch (err) {
@@ -764,5 +812,7 @@ document.getElementById('btn-retry')?.addEventListener('click', () => {
     loadDashboard();
 });
 
-window.addEventListener('resize', resizeCharts);
+window.addEventListener('resize', () => {
+    requestAnimationFrame(resizeVisibleCharts);
+});
 document.addEventListener('DOMContentLoaded', loadDashboard);

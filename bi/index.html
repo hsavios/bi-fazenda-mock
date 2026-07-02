@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=4.0">
+    <link rel="stylesheet" href="css/styles.css?v=4.1">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=4.0"></script>
+    <script type="module" src="js/app.js?v=4.1"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -52,7 +52,7 @@
             </button>
         </nav>
 
-        <main class="app-main" id="app-main">
+        <main class="app-main main-content" id="app-main">
             <div id="loading-state" class="state-overlay" aria-live="polite">
                 <div class="spinner" aria-hidden="true"></div>
                 <p id="loading-text">Carregando indicadores...</p>
@@ -64,152 +64,150 @@
             </div>
 
             <div id="app-views" class="app-views hidden">
-                <!-- Visão Geral Executiva -->
-                <section id="visao-geral" class="view-panel active" data-view="visao-geral">
-                    <div class="view-head">
-                        <h2>Cockpit executivo da safra</h2>
-                        <p class="view-subtitle">Indicadores consolidados com narrativa interpretativa</p>
-                    </div>
-                    <div class="kpi-row kpi-row--6" id="kpi-overview"></div>
-                    <div class="cockpit-layout">
-                        <div class="cockpit-main">
-                            <div class="chart-grid chart-grid--2">
-                                <div class="chart-panel">
-                                    <h3>Ponte do resultado</h3>
-                                    <p class="chart-desc">Receita → custos → despesas → resultado</p>
-                                    <div id="chart-waterfall-exec" class="chart chart--tall"></div>
-                                </div>
-                                <div class="chart-panel">
-                                    <h3>Contribuição por cultura</h3>
-                                    <p class="chart-desc">Participação no resultado consolidado</p>
-                                    <div id="chart-treemap-cultura" class="chart chart--tall"></div>
-                                </div>
+                <!-- Visão Geral -->
+                <section id="visao-geral" class="view-panel dashboard-section active" data-view="visao-geral">
+                    <div class="overview-layout">
+                        <header class="view-head view-head--compact">
+                            <h2>Cockpit executivo da safra</h2>
+                            <p class="view-subtitle">Indicadores consolidados com narrativa interpretativa</p>
+                        </header>
+                        <div class="kpi-row kpi-row--6" id="kpi-overview"></div>
+                        <div class="overview-main">
+                            <div class="chart-card">
+                                <h3>Ponte do resultado</h3>
+                                <p class="chart-desc">Receita → custos → despesas → resultado</p>
+                                <div class="chart-body"><div id="chart-waterfall-exec" class="chart"></div></div>
                             </div>
+                            <div class="chart-card">
+                                <h3>Contribuição por cultura</h3>
+                                <p class="chart-desc">Participação no resultado consolidado</p>
+                                <div class="chart-body"><div id="chart-treemap-cultura" class="chart"></div></div>
+                            </div>
+                            <aside class="insights-panel insights-panel--scroll">
+                                <h3 class="insights-heading">Insights automáticos</h3>
+                                <div id="insights-overview" class="insights-list"></div>
+                            </aside>
                         </div>
-                        <aside class="insights-panel">
-                            <h3 class="insights-heading">Insights automáticos</h3>
-                            <div id="insights-overview" class="insights-list"></div>
-                        </aside>
                     </div>
                 </section>
 
                 <!-- Culturas -->
-                <section id="culturas" class="view-panel" data-view="culturas">
-                    <div class="view-head">
-                        <h2>Análise comparativa de culturas</h2>
-                        <p class="view-subtitle">Eficiência produtiva versus retorno econômico</p>
-                    </div>
-                    <div class="chart-grid chart-grid--2">
-                        <div class="chart-panel">
-                            <h3>Produtividade × margem</h3>
-                            <p class="chart-desc">Tamanho da bolha = receita · cor = status</p>
-                            <div id="chart-scatter-cultura" class="chart chart--tall"></div>
+                <section id="culturas" class="view-panel dashboard-section" data-view="culturas">
+                    <div class="cultures-layout">
+                        <header class="view-head view-head--compact">
+                            <h2>Análise comparativa de culturas</h2>
+                            <p class="view-subtitle">Eficiência produtiva versus retorno econômico</p>
+                        </header>
+                        <div class="cultures-charts">
+                            <div class="chart-card">
+                                <h3>Produtividade × margem</h3>
+                                <p class="chart-desc">Bolha = receita · cor = status</p>
+                                <div class="chart-body"><div id="chart-scatter-cultura" class="chart"></div></div>
+                            </div>
+                            <div class="chart-card">
+                                <h3>Ranking de margem</h3>
+                                <div class="chart-body"><div id="chart-margem-cultura" class="chart"></div></div>
+                            </div>
                         </div>
-                        <div class="chart-panel">
-                            <h3>Ranking de margem</h3>
-                            <div id="chart-margem-cultura" class="chart chart--tall"></div>
-                        </div>
+                        <div class="culture-list-wrap" id="culture-cards"></div>
                     </div>
-                    <h3 class="block-title">Culturas monitoradas</h3>
-                    <div id="culture-cards" class="culture-grid"></div>
                 </section>
 
                 <!-- Estoques -->
-                <section id="estoques" class="view-panel" data-view="estoques">
-                    <div class="view-head">
-                        <h2>Gestão de estoques</h2>
-                        <p class="view-subtitle">Produção armazenada e insumos críticos</p>
-                    </div>
-                    <div class="kpi-row kpi-row--4" id="kpi-estoques"></div>
-                    <div class="chart-grid chart-grid--2">
-                        <div class="chart-panel">
-                            <h3>Produção armazenada (sacas)</h3>
-                            <div id="chart-estoque-prod" class="chart chart--bar-h"></div>
+                <section id="estoques" class="view-panel dashboard-section" data-view="estoques">
+                    <div class="stocks-layout">
+                        <header class="view-head view-head--compact">
+                            <h2>Gestão de estoques</h2>
+                            <p class="view-subtitle">Produção armazenada e insumos críticos</p>
+                        </header>
+                        <div class="kpi-row kpi-row--4" id="kpi-estoques"></div>
+                        <div class="stocks-charts">
+                            <div class="chart-card">
+                                <h3>Produção armazenada (sacas)</h3>
+                                <div class="chart-body"><div id="chart-estoque-prod" class="chart"></div></div>
+                            </div>
+                            <div class="chart-card">
+                                <h3>Treemap de insumos por valor</h3>
+                                <div class="chart-body"><div id="chart-treemap-insumos" class="chart"></div></div>
+                            </div>
                         </div>
-                        <div class="chart-panel">
-                            <h3>Treemap de insumos por valor</h3>
-                            <div id="chart-treemap-insumos" class="chart chart--tall"></div>
+                        <div class="stocks-bottom">
+                            <div class="panel-scroll">
+                                <h3 class="block-title">Top 5 insumos por valor</h3>
+                                <div id="ranking-insumos" class="ranking-table"></div>
+                            </div>
+                            <aside class="insights-panel insights-panel--scroll">
+                                <h3 class="insights-heading">Insights de estoque</h3>
+                                <div id="insights-estoques" class="insights-list"></div>
+                            </aside>
                         </div>
-                    </div>
-                    <div class="section-split">
-                        <div>
-                            <h3 class="block-title">Top 5 insumos por valor</h3>
-                            <div id="ranking-insumos" class="ranking-table"></div>
-                        </div>
-                        <aside class="insights-panel insights-panel--inline">
-                            <h3 class="insights-heading">Insights de estoque</h3>
-                            <div id="insights-estoques" class="insights-list"></div>
-                        </aside>
                     </div>
                 </section>
 
                 <!-- Financeiro -->
-                <section id="financeiro" class="view-panel" data-view="financeiro">
-                    <div class="view-head">
-                        <h2>Visão financeira executiva</h2>
-                        <p class="view-subtitle">DRE, fluxo de caixa e composição de custos</p>
-                    </div>
-                    <div class="kpi-row kpi-row--4" id="kpi-financeiro"></div>
-                    <div class="chart-grid chart-grid--2">
-                        <div class="chart-panel">
-                            <h3>Waterfall DRE consolidado</h3>
-                            <div id="chart-waterfall-dre" class="chart chart--tall"></div>
+                <section id="financeiro" class="view-panel dashboard-section" data-view="financeiro">
+                    <div class="finance-layout">
+                        <header class="view-head view-head--compact">
+                            <h2>Visão financeira executiva</h2>
+                            <p class="view-subtitle">DRE, fluxo de caixa e composição de custos</p>
+                        </header>
+                        <div class="kpi-row kpi-row--4" id="kpi-financeiro"></div>
+                        <div class="finance-top">
+                            <div class="chart-card">
+                                <h3>Waterfall DRE consolidado</h3>
+                                <div class="chart-body"><div id="chart-waterfall-dre" class="chart"></div></div>
+                            </div>
+                            <div class="chart-card">
+                                <h3>Composição de custos por cultura</h3>
+                                <div class="chart-body"><div id="chart-custos-stack" class="chart"></div></div>
+                            </div>
                         </div>
-                        <div class="chart-panel">
-                            <h3>Composição de custos por cultura</h3>
-                            <div id="chart-custos-stack" class="chart chart--tall"></div>
+                        <div class="finance-bottom">
+                            <div class="chart-card">
+                                <h3>Fluxo de caixa — saldo acumulado</h3>
+                                <div class="chart-body"><div id="chart-fluxo" class="chart"></div></div>
+                            </div>
+                            <div class="panel-scroll panel-scroll--dre">
+                                <h3 class="block-title">DRE gerencial por cultura</h3>
+                                <div id="cards-dre" class="compact-table-wrap"></div>
+                            </div>
                         </div>
                     </div>
-                    <div class="chart-panel">
-                        <h3>Fluxo de caixa — saldo acumulado</h3>
-                        <div id="chart-fluxo" class="chart"></div>
-                    </div>
-                    <h3 class="block-title">DRE gerencial por cultura</h3>
-                    <div id="cards-dre" class="dre-grid"></div>
                 </section>
 
                 <!-- Operações -->
-                <section id="operacoes" class="view-panel" data-view="operacoes">
-                    <div class="view-head">
-                        <h2>Análise operacional</h2>
-                        <p class="view-subtitle">Talhões, máquinas e concentração de custos</p>
-                    </div>
-                    <div class="chart-grid chart-grid--2">
-                        <div class="chart-panel">
-                            <h3>Pareto de custos por talhão</h3>
-                            <p class="chart-desc">Concentração acumulada de custo operacional</p>
-                            <div id="chart-pareto-talhao" class="chart chart--tall"></div>
+                <section id="operacoes" class="view-panel dashboard-section" data-view="operacoes">
+                    <div class="operations-layout">
+                        <header class="view-head view-head--compact">
+                            <h2>Análise operacional</h2>
+                            <p class="view-subtitle">Clique nos gráficos para detalhar talhões e máquinas</p>
+                        </header>
+                        <div class="operations-grid">
+                            <div class="chart-card">
+                                <h3>Pareto de custos por talhão</h3>
+                                <p class="chart-desc">Top 8 · concentração acumulada</p>
+                                <div class="chart-body"><div id="chart-pareto-talhao" class="chart"></div></div>
+                            </div>
+                            <div class="chart-card">
+                                <h3>Heatmap talhão × cultura</h3>
+                                <p class="chart-desc">Intensidade de custo operacional</p>
+                                <div class="chart-body"><div id="chart-heatmap-talhao" class="chart"></div></div>
+                            </div>
+                            <div class="chart-card">
+                                <h3>Ranking de resultado por talhão</h3>
+                                <p class="chart-desc">Top 8 talhões</p>
+                                <div class="chart-body"><div id="chart-ranking-talhao" class="chart"></div></div>
+                            </div>
+                            <div class="chart-card">
+                                <h3>Uso de máquinas — horas e custo</h3>
+                                <div class="chart-body"><div id="chart-maquinas" class="chart"></div></div>
+                            </div>
                         </div>
-                        <div class="chart-panel">
-                            <h3>Heatmap talhão × cultura</h3>
-                            <p class="chart-desc">Intensidade de custo operacional</p>
-                            <div id="chart-heatmap-talhao" class="chart chart--tall"></div>
-                        </div>
-                    </div>
-                    <div class="chart-grid chart-grid--2">
-                        <div class="chart-panel">
-                            <h3>Ranking de resultado por talhão</h3>
-                            <div id="chart-ranking-talhao" class="chart chart--bar-h"></div>
-                        </div>
-                        <div class="chart-panel">
-                            <h3>Uso de máquinas — horas e custo</h3>
-                            <div id="chart-maquinas" class="chart chart--tall"></div>
-                        </div>
-                    </div>
-                    <div class="section-split">
-                        <div>
-                            <h3 class="block-title">Talhões em destaque</h3>
-                            <div id="cards-talhao" class="talhao-grid"></div>
-                        </div>
-                        <aside class="insights-panel insights-panel--inline">
-                            <h3 class="insights-heading">Insights operacionais</h3>
-                            <div id="insights-operacoes" class="insights-list"></div>
-                        </aside>
                     </div>
                 </section>
 
                 <!-- Sobre -->
-                <section id="sobre" class="view-panel view-panel--sobre" data-view="sobre">
+                <section id="sobre" class="view-panel dashboard-section view-panel--sobre" data-view="sobre">
                     <div class="sobre-card">
                         <span class="sobre-badge">Demonstração pública</span>
                         <h2>Sua empresa ainda controla isso em planilhas?</h2>
@@ -241,7 +239,6 @@
         </main>
     </div>
 
-    <!-- Drill-down drawer -->
     <div id="drilldown-backdrop" class="drilldown-backdrop" aria-hidden="true"></div>
     <aside id="drilldown-drawer" class="drilldown-drawer" aria-hidden="true" role="dialog" aria-labelledby="drilldown-title">
         <header class="drilldown-header">
