@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --bg: #e8ede9;
     --bg-subtle: #f2f5f2;
     --surface: #ffffff;
@@ -2071,16 +2071,31 @@ body.drilldown-open { overflow: hidden; }
 .dre-statement-head,
 .dre-statement-row {
     display: grid;
-    grid-template-columns: minmax(420px, 1.8fr) minmax(180px, 0.65fr) 110px 110px 110px;
+    grid-template-columns: minmax(280px, 1.8fr) minmax(160px, 0.65fr) 100px 100px 100px;
     align-items: center;
-    column-gap: 18px;
+    column-gap: 16px;
     padding: 8px 14px;
 }
+
+.dre-statement-head > :nth-child(1),
+.dre-statement-row > .dre-line-label { grid-column: 1; min-width: 0; }
+
+.dre-statement-head > :nth-child(2),
+.dre-statement-row > .dre-value-wrap { grid-column: 2; }
+
+.dre-statement-head > :nth-child(3),
+.dre-statement-row > .dre-col-pct { grid-column: 3; }
+
+.dre-statement-head > :nth-child(4),
+.dre-statement-row > .dre-col-ha { grid-column: 4; }
+
+.dre-statement-head > :nth-child(5),
+.dre-statement-row > .dre-col-sc { grid-column: 5; }
 
 @media (max-width: 1400px) {
     .dre-statement-head,
     .dre-statement-row {
-        grid-template-columns: minmax(320px, 1.7fr) minmax(150px, 0.7fr) 90px 90px 90px;
+        grid-template-columns: minmax(240px, 1.7fr) minmax(140px, 0.7fr) 88px 88px 88px;
     }
 }
 
@@ -2160,22 +2175,25 @@ body.drilldown-open { overflow: hidden; }
 .dre-line-label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     min-width: 0;
+    overflow: hidden;
 }
-
-.dre-line-label[data-level="0"] { padding-left: 0; }
-.dre-line-label[data-level="1"] { padding-left: 24px; }
-.dre-line-label[data-level="2"] { padding-left: 48px; }
 
 .dre-line-text {
     font-size: 0.76rem;
     font-weight: inherit;
     line-height: 1.25;
+    flex: 1;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
+
+.dre-line-label[data-level="0"] { padding-left: 0; }
+.dre-line-label[data-level="1"] { padding-left: 24px; }
+.dre-line-label[data-level="2"] { padding-left: 48px; }
 
 .dre-line-meta {
     font-size: 0.58rem;

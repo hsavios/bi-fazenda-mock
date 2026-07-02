@@ -6,9 +6,9 @@ import {
     formatCurrencyCompact,
     formatPct,
     formatNumber
-} from './api.js?v=5.4';
-import { openDrilldown } from './drilldown.js?v=5.4';
-import { horizontalBarOption } from './charts.js?v=5.4';
+} from './api.js?v=5.4.1';
+import { openDrilldown } from './drilldown.js?v=5.4.1';
+import { horizontalBarOption } from './charts.js?v=5.4.1';
 
 const LINHA_GRUPO_ORDEM = {
     'Receita bruta': 10,
