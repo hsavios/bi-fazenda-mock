@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # Deploy do stack BI (PostgREST + nginx) na VPS
 set -Eeuo pipefail
 
