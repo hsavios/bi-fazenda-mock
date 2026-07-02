@@ -4,12 +4,18 @@ set -Eeuo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+# shellcheck source=lib/agro_secrets.sh
+source "$SCRIPT_DIR/lib/agro_secrets.sh"
+
 DB_DIR="$PROJECT_ROOT/database/agro_fazenda_mock"
 VALIDATION_SQL="$DB_DIR/05_validation_queries.sql"
+LOG_DIR="$PROJECT_ROOT/logs"
 
 CONTAINER_NAME="${POSTGRES_CONTAINER:-postgres}"
-DB_NAME="${AGRO_MOCK_DB:-agro_fazenda_mock}"
+DB_NAME="${AGRO_DB:-agro_fazenda_mock}"
 PGUSER="${POSTGRES_USER:-}"
+EXPECTED_TABLES="${EXPECTED_TABLES:-}"
+EXPECTED_VIEWS="${EXPECTED_VIEWS:-}"
 
 usage() {
     cat <<'EOF'
@@ -22,7 +28,8 @@ Opções:
   --help             Exibe esta ajuda
 
 Variáveis de ambiente:
-  POSTGRES_CONTAINER, AGRO_MOCK_DB, POSTGRES_USER
+  POSTGRES_CONTAINER, AGRO_DB, POSTGRES_USER
+  EXPECTED_TABLES, EXPECTED_VIEWS (opcional — força contagem esperada)
 EOF
 }
 
@@ -34,68 +41,126 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ "$CONTAINER_NAME" == "gesto-app-postgres-1" ]]; then
-    echo "ERRO: Uso do container gesto-app-postgres-1 é proibido." >&2
-    exit 1
-fi
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/validacao_agro_fazenda_mock_$(date '+%Y%m%d_%H%M%S').log"
 
-command -v docker >/dev/null 2>&1 || { echo "Docker não encontrado." >&2; exit 1; }
-docker ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME" || {
-    echo "Container '$CONTAINER_NAME' não está rodando." >&2; exit 1;
-}
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
+
+assert_postgres_container "$CONTAINER_NAME"
 
 [[ -f "$VALIDATION_SQL" ]] || { echo "Arquivo não encontrado: $VALIDATION_SQL" >&2; exit 1; }
 
 if [[ -z "$PGUSER" ]]; then
-    PGUSER=$(docker exec "$CONTAINER_NAME" printenv POSTGRES_USER 2>/dev/null || true)
-    [[ -n "$PGUSER" ]] || { echo "Não foi possível obter POSTGRES_USER do container." >&2; exit 1; }
+    PGUSER=$(get_postgres_admin_user "$CONTAINER_NAME")
 fi
+
+load_agro_secrets || true
+DB_NAME="${AGRO_DB:-$DB_NAME}"
 
 CURRENT_DB=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc "SELECT current_database();" 2>/dev/null || true)
 if [[ "$CURRENT_DB" != "$DB_NAME" ]]; then
-    echo "ERRO: Banco ativo '$CURRENT_DB' difere de '$DB_NAME'." >&2
+    log "ERRO: Banco ativo '$CURRENT_DB' difere de '$DB_NAME'."
     exit 1
 fi
 
-echo "=== Validando $DB_NAME no container $CONTAINER_NAME ==="
+log "=== Validando $DB_NAME no container $CONTAINER_NAME ==="
+log "Log: $LOG_FILE"
 
 TMP_OUT=$(mktemp)
 trap 'rm -f "$TMP_OUT"' EXIT
 
-docker exec -i "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
-    < "$VALIDATION_SQL" | tee "$TMP_OUT"
+docker exec -i "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -P pager=off -v ON_ERROR_STOP=1 \
+    < "$VALIDATION_SQL" | tee "$TMP_OUT" | tee -a "$LOG_FILE"
 
 FAILURES=0
 
 if grep -q 'FALHA' "$TMP_OUT"; then
-    echo ""
-    echo "AVISO: Foram encontrados registros com status FALHA." >&2
+    log "AVISO: Foram encontrados registros com status FALHA."
     FAILURES=$((FAILURES + 1))
 fi
 
-# Verificar lançamentos desbalanceados (seção deve retornar 0 linhas)
-UNBALANCED=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc "
+# Contagens de schema
+TOTAL_TABLES=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc \
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'agro' AND table_type = 'BASE TABLE';")
+TOTAL_VIEWS=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc \
+    "SELECT COUNT(*) FROM information_schema.views WHERE table_schema = 'agro';")
+TOTAL_TABLES=$(echo "$TOTAL_TABLES" | tr -d '[:space:]')
+TOTAL_VIEWS=$(echo "$TOTAL_VIEWS" | tr -d '[:space:]')
+
+log "Tabelas no schema agro: $TOTAL_TABLES"
+log "Views no schema agro:   $TOTAL_VIEWS"
+
+if [[ -n "$EXPECTED_TABLES" ]] && [[ "$TOTAL_TABLES" != "$EXPECTED_TABLES" ]]; then
+    log "ERRO: Esperado $EXPECTED_TABLES tabelas, encontrado $TOTAL_TABLES."
+    FAILURES=$((FAILURES + 1))
+fi
+
+if [[ -n "$EXPECTED_VIEWS" ]] && [[ "$TOTAL_VIEWS" != "$EXPECTED_VIEWS" ]]; then
+    log "ERRO: Esperado $EXPECTED_VIEWS views, encontrado $TOTAL_VIEWS."
+    FAILURES=$((FAILURES + 1))
+fi
+
+# Partidas contábeis — detecta modelo de tabelas
+UNBALANCED=""
+ACCOUNTING_MODEL=""
+
+if docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc \
+    "SELECT 1 FROM information_schema.tables WHERE table_schema='agro' AND table_name='lancamento_contabil';" \
+    | grep -q 1; then
+    ACCOUNTING_MODEL="lancamento_contabil"
+    UNBALANCED=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc "
 SELECT COUNT(*) FROM (
-    SELECT lc.id
-    FROM agro.lancamentos_contabeis lc
-    JOIN agro.partidas_lancamento pl ON pl.lancamento_id = lc.id
-    GROUP BY lc.id
-    HAVING SUM(CASE WHEN pl.tipo = 'debito' THEN pl.valor ELSE 0 END) <>
-           SUM(CASE WHEN pl.tipo = 'credito' THEN pl.valor ELSE 0 END)
+  SELECT lc.id
+  FROM agro.lancamento_contabil lc
+  JOIN agro.lancamento_contabil_item lci ON lci.lancamento_contabil_id = lc.id
+  GROUP BY lc.id
+  HAVING round(sum(coalesce(lci.debito, 0)), 2) <> round(sum(coalesce(lci.credito, 0)), 2)
 ) x;
 ")
-UNBALANCED=$(echo "$UNBALANCED" | tr -d '[:space:]')
-
-if [[ "$UNBALANCED" != "0" ]]; then
-    echo "ERRO: $UNBALANCED lançamento(s) contábil(is) desbalanceado(s)." >&2
-    FAILURES=$((FAILURES + 1))
+elif docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc \
+    "SELECT 1 FROM information_schema.tables WHERE table_schema='agro' AND table_name='lancamentos_contabeis';" \
+    | grep -q 1; then
+    ACCOUNTING_MODEL="lancamentos_contabeis"
+    UNBALANCED=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc "
+SELECT COUNT(*) FROM (
+  SELECT lc.id
+  FROM agro.lancamentos_contabeis lc
+  JOIN agro.partidas_lancamento pl ON pl.lancamento_id = lc.id
+  GROUP BY lc.id
+  HAVING SUM(CASE WHEN pl.tipo = 'debito' THEN pl.valor ELSE 0 END) <>
+         SUM(CASE WHEN pl.tipo = 'credito' THEN pl.valor ELSE 0 END)
+) x;
+")
 else
-    echo "Partidas contábeis: OK (todos balanceados)"
+    log "AVISO: Tabelas contábeis não encontradas no schema agro."
+    FAILURES=$((FAILURES + 1))
 fi
 
+UNBALANCED=$(echo "${UNBALANCED:-}" | tr -d '[:space:]')
+
+if [[ -n "$ACCOUNTING_MODEL" ]]; then
+    if [[ "$UNBALANCED" != "0" ]]; then
+        log "ERRO: $UNBALANCED lançamento(s) contábil(is) desbalanceado(s) [$ACCOUNTING_MODEL]."
+        FAILURES=$((FAILURES + 1))
+    else
+        log "Partidas contábeis ($ACCOUNTING_MODEL): OK — 0 desbalanceados"
+    fi
+fi
+
+# Resumo final
+docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -P pager=off -c "
+SELECT
+  current_database() AS banco,
+  current_user AS usuario,
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema = 'agro' AND table_type = 'BASE TABLE') AS tabelas,
+  (SELECT COUNT(*) FROM information_schema.views
+   WHERE table_schema = 'agro') AS views;
+" | tee -a "$LOG_FILE"
+
 if [[ $FAILURES -gt 0 ]]; then
-    echo "Validação concluída com FALHAS ($FAILURES problema(s))." >&2
+    log "Validação concluída com FALHAS ($FAILURES problema(s))."
     exit 1
 fi
 
-echo "Validação concluída com sucesso."
+log "Validação concluída com sucesso."

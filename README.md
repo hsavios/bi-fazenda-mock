@@ -1,251 +1,159 @@
-﻿# bi-fazenda-mock
+﻿# agro-fazenda-mock
 
-> Base de dados mock agrícola em PostgreSQL + dashboard BI em HTML5/CSS/JavaScript para análise de produção, custos, financeiro e contabilidade de uma fazenda fictícia.
+Base PostgreSQL mock completa para uma fazenda produtora de **soja, milho, sorgo, feijão e café** — com rastreabilidade entre fazenda, talhões, safras, culturas, operações, insumos, máquinas, pessoas, estoques, comercialização, financeiro, custos e contabilidade.
 
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![PostgREST](https://img.shields.io/badge/PostgREST-v12-008080)](https://postgrest.org/)
-[![HTML5](https://img.shields.io/badge/Frontend-HTML5%20%2B%20CSS%20%2B%20JS-E34F26?logo=html5&logoColor=white)](bi/)
-[![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?logo=docker&logoColor=white)](docs/deploy-agro-fazenda-mock-postgresql.md)
-
-Sistema completo de **Business Intelligence agrícola** com dados fictícios coerentes da **Fazenda Boa Esperança Agro Ltda.** (Rio Verde/GO), cobrindo soja, milho, sorgo, feijão e café — do plantio à contabilidade.
+Projeto versionável para desenvolvimento, testes, demonstrações, BI, APIs e futuras aplicações de gestão agrícola.
 
 ---
 
-## Visão geral
+## O que é
 
-```mermaid
-flowchart TB
-    subgraph dados [Camada de Dados]
-        PG[(PostgreSQL agro_fazenda_mock)]
-        SCHEMA[schema agro — 69 tabelas]
-        VIEWS[14 views KPI]
-        PG --> SCHEMA
-        SCHEMA --> VIEWS
-    end
+O banco `agro_fazenda_mock` (schema `agro`) representa a operação fictícia **Fazenda Boa Esperança Agro Ltda.** em Rio Verde/GO, com dados coerentes do plantio ao balancete contábil.
 
-    subgraph deploy [Automação]
-        DEPLOY[deploy_agro_fazenda_mock_vps.sh]
-        VALID[validate_agro_fazenda_mock.sh]
-        DEPLOY --> PG
-        VALID --> PG
-    end
-
-    subgraph bi [Camada BI]
-        PGRST[PostgREST :3000]
-        NGINX[nginx :8088]
-        DASH[Dashboard HTML5 + ECharts]
-        DASH --> NGINX
-        NGINX --> PGRST
-        PGRST --> VIEWS
-    end
-```
-
-| Métrica | Valor |
-|---------|-------|
-| Tabelas | **69** |
-| Views analíticas | **14** |
-| Talhões mock | **20** |
-| Culturas | **5** (soja, milho, sorgo, feijão, café) |
-| Insumos | **35+** |
-| Lançamentos contábeis | **8** (partidas dobradas balanceadas) |
-
----
-
-## Domínios modelados
-
-```mermaid
-mindmap
-  root((agro_fazenda_mock))
-    Estrutura
-      Fazendas
-      Talhões
-      Safras
-      Culturas
-    Produção
-      Plantio
-      Colheita
-      Operações
-      Indicadores
-    Insumos
-      Estoque
-      Lotes
-      Fornecedores
-    Máquinas
-      Equipamentos
-      Combustível
-      Manutenção
-    RH
-      Colaboradores
-      Apontamentos
-    Comercial
-      Contratos
-      Entregas
-      NF mock
-    Financeiro
-      Contas pagar/receber
-      Fluxo de caixa
-    Contabilidade
-      Plano de contas
-      DRE gerencial
-      Balancete
-```
-
----
-
-## Dashboard BI
-
-Interface web responsiva com **6 seções analíticas**:
-
-| Seção | Conteúdo |
-|-------|----------|
-| **Visão Geral** | KPIs de receita, resultado, produtividade e gráfico por cultura |
-| **Produção** | Produtividade por talhão (ranking + tabela) |
-| **Custos** | Custo/hectare e margem bruta por cultura |
-| **Estoques** | Insumos e produção armazenada |
-| **Financeiro** | Fluxo de caixa com saldo acumulado |
-| **Contabilidade** | DRE gerencial por cultura |
-
-**Stack frontend:** HTML5 semântico · CSS Grid/Flexbox · vanilla JavaScript (ES modules) · [Apache ECharts](https://echarts.apache.org/)
-
----
-
-## Início rápido
-
-### 1. Clonar o repositório
-
-```bash
-git clone https://github.com/hsavios/bi-fazenda-mock.git
-cd bi-fazenda-mock
-```
-
-### 2. Provisionar o banco (VPS)
-
-Requisitos: Docker com container `postgres` (`postgres:16`) em `127.0.0.1:5432`.
-
-```bash
-chmod +x scripts/*.sh
-./scripts/deploy_agro_fazenda_mock_vps.sh --yes
-```
-
-Credenciais geradas em `~/.secrets/agro_fazenda_mock.env` (chmod 600).
-
-### 3. Subir o dashboard BI
-
-```bash
-./scripts/deploy_bi_vps.sh
-```
-
-Acesse: **http://127.0.0.1:8088**
+| Componente | Descrição |
+|------------|-----------|
+| Banco | `agro_fazenda_mock` |
+| Usuário | `agro_mock_user` |
+| Schema | `agro` |
+| Container | `postgres` (Docker, `postgres:16`) |
 
 ---
 
 ## Estrutura do projeto
 
 ```
-bi-fazenda-mock/
+agro-fazenda-mock/
 ├── database/agro_fazenda_mock/   # SQL modular + consolidado
 │   ├── 00_drop_create_schema.sql
-│   ├── 01_schema.sql             # DDL — 69 tabelas
-│   ├── 02_seed_master_data.sql   # Cadastros mestres
+│   ├── 01_schema.sql
+│   ├── 02_seed_master_data.sql
 │   ├── 03_seed_operational_data.sql
-│   ├── 04_views_kpis.sql         # 14 views BI
+│   ├── 04_views_kpis.sql
 │   ├── 05_validation_queries.sql
-│   └── agro_fazenda_mock_full.sql  # gerado automaticamente
+│   ├── agro_fazenda_mock_full.sql
+│   └── README.md
 ├── scripts/
-│   ├── deploy_agro_fazenda_mock_vps.sh   # deploy completo
+│   ├── deploy_agro_fazenda_mock_vps.sh
 │   ├── validate_agro_fazenda_mock.sh
+│   ├── connect_agro_fazenda_mock.sh
+│   ├── backup_agro_fazenda_mock.sh
 │   ├── build_agro_fazenda_mock_full.sh
-│   └── deploy_bi_vps.sh
-├── bi/                           # Dashboard HTML5/CSS/JS
-│   ├── index.html
-│   ├── css/styles.css
-│   └── js/{api,app}.js
-├── docs/                         # Guias e relatório técnico
-├── docker-compose.bi.yml         # PostgREST + nginx
-└── logs/                         # logs de deploy (gitignored)
+│   └── lib/agro_secrets.sh
+├── docs/
+│   ├── deploy-agro-fazenda-mock-postgresql.md
+│   ├── modelo-dados-agro-fazenda-mock.md
+│   └── operacao-e-manutencao.md
+├── bi/                           # Dashboard BI (opcional)
+├── logs/                         # logs de deploy/validação (gitignored)
+├── backups/                      # dumps (gitignored)
+├── .gitignore
+├── DEPLOY_OK.md
+└── README.md
 ```
 
 ---
 
-## Views KPI disponíveis
+## Início rápido
 
-| View | Descrição |
-|------|-----------|
-| `vw_custo_hectare_cultura_safra` | Custo por hectare |
-| `vw_custo_saca_cultura_safra` | Custo por saca |
-| `vw_resultado_gerencial_cultura` | Resultado por cultura |
-| `vw_resultado_talhao` | Resultado estimado por talhão |
-| `vw_estoque_insumos_atual` | Posição de estoque de insumos |
-| `vw_estoque_producao_atual` | Estoque de grãos/café |
-| `vw_uso_maquinas_safra` | Horas e custo de máquinas |
-| `vw_horas_mao_obra_safra` | Mão de obra por safra |
-| `vw_fluxo_caixa_realizado` | Fluxo de caixa com saldo |
-| `vw_balancete_contabil` | Balancete mensal |
-| `vw_dre_gerencial` | DRE por cultura/safra |
-| `vw_margem_bruta_cultura` | Margem bruta |
-| `vw_produtividade_talhao` | Produtividade sc/ha |
-| `vw_comercializacao_cultura` | Contratos e entregas |
-
----
-
-## Segurança e isolamento
-
-- Banco **independente**: `agro_fazenda_mock` (não interfere em outros bancos)
-- Usuário dedicado: `agro_mock_user`
-- Schema dedicado: `agro`
-- Guard clause impede execução acidental fora do banco correto
-- Deploy **bloqueia** uso do container `gesto-app-postgres-1`
-- BI usa role read-only `agro_mock_readonly` via PostgREST
-
----
-
-## Scripts — referência
+### 1. Clonar e preparar
 
 ```bash
-# Deploy completo (exige --yes para DROP SCHEMA)
+git clone <repo-url> agro-fazenda-mock
+cd agro-fazenda-mock
+chmod +x scripts/*.sh
+```
+
+### 2. Deploy na VPS
+
+Requisitos: Docker com container `postgres` rodando.
+
+```bash
 ./scripts/deploy_agro_fazenda_mock_vps.sh --yes
+```
 
-# Opções adicionais
-./scripts/deploy_agro_fazenda_mock_vps.sh --yes --reset-password
-./scripts/deploy_agro_fazenda_mock_vps.sh --yes --skip-validation
+> **Atenção:** sem `--yes`, o script pede confirmação porque o SQL pode apagar e recriar o schema `agro` (`DROP CASCADE`).
 
-# Validar integridade
+### 3. Validar
+
+```bash
 ./scripts/validate_agro_fazenda_mock.sh
+```
 
-# Regenerar SQL consolidado
-./scripts/build_agro_fazenda_mock_full.sh
+### 4. Conectar
+
+```bash
+./scripts/connect_agro_fazenda_mock.sh
+```
+
+### 5. Backup
+
+```bash
+./scripts/backup_agro_fazenda_mock.sh
+```
+
+---
+
+## Credenciais
+
+Arquivo: `~/.secrets/agro_fazenda_mock.env` (chmod 600, **não commitar**)
+
+```bash
+source ~/.secrets/agro_fazenda_mock.env
+# AGRO_DB, AGRO_USER, AGRO_PASS, AGRO_SCHEMA
+```
+
+---
+
+## Evitar o PostgreSQL errado
+
+| Container | Status |
+|-----------|--------|
+| `postgres` | **Usar** — base agro |
+| `gesto-app-postgres-1` | **Não usar** — outro projeto |
+
+Todos os scripts bloqueiam uso acidental do container errado.
+
+---
+
+## Logs
+
+| Tipo | Padrão |
+|------|--------|
+| Deploy | `logs/agro_fazenda_mock_deploy_*.log` |
+| Validação | `logs/validacao_agro_fazenda_mock_*.log` |
+
+---
+
+## Recriar a base
+
+```bash
+./scripts/backup_agro_fazenda_mock.sh          # recomendado antes
+./scripts/deploy_agro_fazenda_mock_vps.sh --yes
+./scripts/validate_agro_fazenda_mock.sh
 ```
 
 ---
 
 ## Documentação
 
-- [Guia de deploy na VPS](docs/deploy-agro-fazenda-mock-postgresql.md)
-- [Relatório de implementação](docs/relatorio-implementacao-agro-fazenda-mock.md)
-- [Modelo do banco](database/agro_fazenda_mock/README.md)
-- [Dashboard BI](bi/README.md)
+- [Deploy na VPS](docs/deploy-agro-fazenda-mock-postgresql.md)
+- [Modelo de dados](docs/modelo-dados-agro-fazenda-mock.md)
+- [Operação e manutenção](docs/operacao-e-manutencao.md)
+- [Deploy validado na VPS](DEPLOY_OK.md)
 
 ---
 
-## Dados fictícios
+## Métricas (versão atual do repositório)
 
-Todos os dados são **fictícios** e não representam pessoas ou empresas reais.
-
-| Entidade | Exemplo |
-|----------|---------|
-| Fazenda | Fazenda Boa Esperança Agro Ltda. |
-| Localização | Rio Verde, GO |
-| Safras | 2023/24, 2024/25, 2025/26 |
-| Área total | ~4.850 ha |
+| Métrica | Valor |
+|---------|-------|
+| Tabelas | 69 |
+| Views KPI | 14 |
+| Talhões | 20 |
+| Culturas | 5 |
 
 ---
 
 ## Licença
 
-Projeto de demonstração / estudo. Uso livre para fins educacionais e de prototipagem de BI agrícola.
-
----
-
-<p align="center">
-  <strong>bi-fazenda-mock</strong> — do campo ao balancete, com dados mock prontos para BI
-</p>
+Projeto de demonstração / estudo. Dados fictícios — uso livre para fins educacionais e prototipagem.

@@ -4,6 +4,9 @@ set -Eeuo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+# shellcheck source=lib/agro_secrets.sh
+source "$SCRIPT_DIR/lib/agro_secrets.sh"
+
 DB_DIR="$PROJECT_ROOT/database/agro_fazenda_mock"
 FULL_SQL="$DB_DIR/agro_fazenda_mock_full.sql"
 BUILD_SCRIPT="$SCRIPT_DIR/build_agro_fazenda_mock_full.sh"
@@ -24,6 +27,9 @@ usage() {
 Uso: deploy_agro_fazenda_mock_vps.sh [opções]
 
 Provisiona o banco mock agrícola agro_fazenda_mock no container Docker postgres.
+
+ATENÇÃO: o SQL consolidado executa DROP SCHEMA IF EXISTS agro CASCADE,
+apagando todo o schema agro e recriando do zero.
 
 Opções:
   --yes              Confirma execução destrutiva (DROP SCHEMA agro CASCADE)
@@ -62,23 +68,13 @@ log "Iniciando deploy agro_fazenda_mock"
 log "Log: $LOG_FILE"
 
 # --- Validações Docker ---
-command -v docker >/dev/null 2>&1 || { log "ERRO: Docker não disponível."; exit 1; }
+assert_postgres_container "$CONTAINER_NAME"
 
 if docker ps -a --format '{{.Names}}' | grep -qx "gesto-app-postgres-1"; then
-    if [[ "$CONTAINER_NAME" == "gesto-app-postgres-1" ]]; then
-        log "ERRO: Container gesto-app-postgres-1 não pode ser usado."
-        exit 1
-    fi
+    log "AVISO: gesto-app-postgres-1 detectado — este deploy usa somente '$CONTAINER_NAME'."
 fi
 
-docker ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME" || {
-    log "ERRO: Container '$CONTAINER_NAME' não está rodando."
-    exit 1
-}
-
-# Health check / conectividade
-PGUSER=$(docker exec "$CONTAINER_NAME" printenv POSTGRES_USER 2>/dev/null || true)
-[[ -n "$PGUSER" ]] || { log "ERRO: POSTGRES_USER não definido no container."; exit 1; }
+PGUSER=$(get_postgres_admin_user "$CONTAINER_NAME")
 
 docker exec "$CONTAINER_NAME" pg_isready -U "$PGUSER" >/dev/null 2>&1 || {
     log "ERRO: PostgreSQL no container não está aceitando conexões."
@@ -99,8 +95,14 @@ DB_EXISTS=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d postgres -tAc \
 
 if [[ "$DB_EXISTS" != "1" ]]; then
     log "Criando banco $DB_NAME..."
-    docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d postgres -v ON_ERROR_STOP=1 \
-        -c "CREATE DATABASE $DB_NAME ENCODING 'UTF8' LC_COLLATE 'en_US.utf8' LC_CTYPE 'en_US.utf8' TEMPLATE template0;"
+    if docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d postgres -v ON_ERROR_STOP=1 \
+        -c "CREATE DATABASE $DB_NAME ENCODING 'UTF8' LC_COLLATE 'en_US.utf8' LC_CTYPE 'en_US.utf8' TEMPLATE template0;" 2>/dev/null; then
+        log "Banco criado com locale en_US.utf8."
+    else
+        log "Locale en_US.utf8 indisponível — criando com encoding UTF8 padrão."
+        docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE DATABASE $DB_NAME ENCODING 'UTF8' TEMPLATE template0;"
+    fi
 else
     log "Banco $DB_NAME já existe."
 fi
@@ -110,7 +112,7 @@ APP_PASSWORD=""
 if [[ -f "$SECRETS_FILE" ]] && [[ "$RESET_PASSWORD" != "true" ]]; then
     # shellcheck disable=SC1090
     source "$SECRETS_FILE"
-    APP_PASSWORD="${AGRO_MOCK_PASSWORD:-}"
+    APP_PASSWORD="${AGRO_PASS:-${AGRO_MOCK_PASSWORD:-}}"
 fi
 
 if [[ -z "$APP_PASSWORD" ]]; then
@@ -137,6 +139,14 @@ docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d postgres -v ON_ERROR_STOP=1 \
 
 # Salvar credenciais (sem expor senha no log)
 cat > "$SECRETS_FILE" <<EOF
+# Credenciais agro_fazenda_mock — não commitar
+AGRO_DB=$DB_NAME
+AGRO_USER=$APP_USER
+AGRO_PASS=$APP_PASSWORD
+AGRO_HOST=127.0.0.1
+AGRO_PORT=5432
+AGRO_SCHEMA=agro
+# Aliases legados
 AGRO_MOCK_DB=$DB_NAME
 AGRO_MOCK_USER=$APP_USER
 AGRO_MOCK_PASSWORD=$APP_PASSWORD
@@ -151,7 +161,7 @@ log "Credenciais salvas em $SECRETS_FILE"
 GUARD_SQL="
 DO \$\$ BEGIN
   IF current_database() <> '$DB_NAME' THEN
-    RAISE EXCEPTION 'Abortado: banco ativo %', current_database();
+    RAISE EXCEPTION 'Abortado: banco ativo %, esperado $DB_NAME', current_database();
   END IF;
 END \$\$;
 "
@@ -170,14 +180,19 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA agro TO $APP_USER;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA agro TO $APP_USER;
 ALTER DEFAULT PRIVILEGES IN SCHEMA agro GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO $APP_USER;
 ALTER DEFAULT PRIVILEGES IN SCHEMA agro GRANT USAGE, SELECT ON SEQUENCES TO $APP_USER;
-GRANT agro_mock_readonly TO $APP_USER;
+DO \$\$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'agro_mock_readonly') THEN
+    GRANT agro_mock_readonly TO $APP_USER;
+  END IF;
+END \$\$;
 EOSQL
 
 # --- Validação ---
 VALIDATION_OK="pulada"
 if [[ "$SKIP_VALIDATION" != "true" ]]; then
     chmod +x "$VALIDATE_SCRIPT"
-    POSTGRES_USER="$PGUSER" POSTGRES_CONTAINER="$CONTAINER_NAME" AGRO_MOCK_DB="$DB_NAME" \
+    POSTGRES_USER="$PGUSER" POSTGRES_CONTAINER="$CONTAINER_NAME" AGRO_DB="$DB_NAME" \
         "$VALIDATE_SCRIPT" && VALIDATION_OK="sucesso" || VALIDATION_OK="falha"
 fi
 
@@ -187,41 +202,49 @@ TOTAL_TABLES=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tA
 TOTAL_VIEWS=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc \
     "SELECT COUNT(*) FROM information_schema.views WHERE table_schema = 'agro';")
 
-log ""
-log "========== RESUMO DO DEPLOY =========="
-log "Container usado:     $CONTAINER_NAME"
-log "Banco:               $DB_NAME"
-log "Usuário app:         $APP_USER"
-log "Tabelas (schema agro): $TOTAL_TABLES"
-log "Views (schema agro):   $TOTAL_VIEWS"
-
-docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -c "
-SET search_path TO agro, public;
-SELECT 'fazendas' AS entidade, COUNT(*)::text AS registros FROM fazendas
-UNION ALL SELECT 'talhoes', COUNT(*)::text FROM talhoes
-UNION ALL SELECT 'culturas', COUNT(*)::text FROM culturas
-UNION ALL SELECT 'insumos', COUNT(*)::text FROM insumos
-UNION ALL SELECT 'equipamentos', COUNT(*)::text FROM equipamentos
-UNION ALL SELECT 'colaboradores', COUNT(*)::text FROM colaboradores
-UNION ALL SELECT 'contratos_venda', COUNT(*)::text FROM contratos_venda
-UNION ALL SELECT 'lancamentos_contabeis', COUNT(*)::text FROM lancamentos_contabeis;
-"
-
-PARTIDAS_STATUS=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc "
-SELECT CASE WHEN COUNT(*) = 0 THEN 'OK — partidas balanceadas' ELSE 'FALHA — ' || COUNT(*) || ' desbalanceados' END
+PARTIDAS_STATUS="N/A — tabelas contábeis não encontradas"
+if docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc \
+    "SELECT 1 FROM information_schema.tables WHERE table_schema='agro' AND table_name='lancamento_contabil';" \
+    | grep -q 1; then
+    PARTIDAS_STATUS=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc "
+SELECT CASE WHEN COUNT(*) = 0 THEN 'OK — partidas balanceadas'
+            ELSE 'FALHA — ' || COUNT(*) || ' desbalanceados' END
 FROM (
-    SELECT lc.id FROM agro.lancamentos_contabeis lc
-    JOIN agro.partidas_lancamento pl ON pl.lancamento_id = lc.id
-    GROUP BY lc.id
-    HAVING SUM(CASE WHEN pl.tipo = 'debito' THEN pl.valor ELSE 0 END) <>
-           SUM(CASE WHEN pl.tipo = 'credito' THEN pl.valor ELSE 0 END)
+  SELECT lc.id
+  FROM agro.lancamento_contabil lc
+  JOIN agro.lancamento_contabil_item lci ON lci.lancamento_contabil_id = lc.id
+  GROUP BY lc.id
+  HAVING round(sum(coalesce(lci.debito, 0)), 2) <> round(sum(coalesce(lci.credito, 0)), 2)
 ) x;
 ")
+elif docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc \
+    "SELECT 1 FROM information_schema.tables WHERE table_schema='agro' AND table_name='lancamentos_contabeis';" \
+    | grep -q 1; then
+    PARTIDAS_STATUS=$(docker exec "$CONTAINER_NAME" psql -U "$PGUSER" -d "$DB_NAME" -tAc "
+SELECT CASE WHEN COUNT(*) = 0 THEN 'OK — partidas balanceadas'
+            ELSE 'FALHA — ' || COUNT(*) || ' desbalanceados' END
+FROM (
+  SELECT lc.id
+  FROM agro.lancamentos_contabeis lc
+  JOIN agro.partidas_lancamento pl ON pl.lancamento_id = lc.id
+  GROUP BY lc.id
+  HAVING SUM(CASE WHEN pl.tipo = 'debito' THEN pl.valor ELSE 0 END) <>
+         SUM(CASE WHEN pl.tipo = 'credito' THEN pl.valor ELSE 0 END)
+) x;
+")
+fi
 
-log "Partidas contábeis:  $PARTIDAS_STATUS"
-log "Validação:          $VALIDATION_OK"
-log "Credenciais:        $SECRETS_FILE"
-log "Log:                $LOG_FILE"
+log ""
+log "========== RESUMO DO DEPLOY =========="
+log "Container usado:       $CONTAINER_NAME"
+log "Banco:                 $DB_NAME"
+log "Usuário app:           $APP_USER"
+log "Tabelas (schema agro): $TOTAL_TABLES"
+log "Views (schema agro):   $TOTAL_VIEWS"
+log "Partidas contábeis:    $PARTIDAS_STATUS"
+log "Validação:             $VALIDATION_OK"
+log "Credenciais:           $SECRETS_FILE"
+log "Log:                   $LOG_FILE"
 log "======================================="
 
 if [[ "$VALIDATION_OK" == "falha" ]]; then

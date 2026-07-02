@@ -1,5 +1,5 @@
 -- agro_fazenda_mock_full.sql
--- Gerado automaticamente em 2026-06-27T15:59:25-03:00
+-- Gerado automaticamente em 2026-07-02T08:16:15-03:00
 -- NÃO editar manualmente — altere os arquivos modulares e regenere.
 
 -- >>> BEGIN 00_drop_create_schema.sql
