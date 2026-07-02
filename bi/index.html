@@ -1,67 +1,146 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BI — Fazenda Boa Esperança Agro</title>
+    <meta name="description" content="Demonstração interativa de BI agrícola com dados fictícios — soja, milho, sorgo, feijão e café.">
+    <title>BI Agro — Fazenda Mock | Demonstração</title>
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 </head>
 <body>
-    <header>
-        <h1><span>BI</span> Fazenda Boa Esperança Agro</h1>
-        <nav>
-            <button class="active" data-section="overview">Visão Geral</button>
-            <button data-section="producao">Produção</button>
-            <button data-section="custos">Custos</button>
-            <button data-section="estoques">Estoques</button>
-            <button data-section="financeiro">Financeiro</button>
-            <button data-section="contabilidade">Contabilidade</button>
-        </nav>
-        <p id="api-status" class="status-bar">Inicializando...</p>
+    <a class="skip-link" href="#indicadores">Pular para indicadores</a>
+
+    <header class="hero">
+        <div class="hero-inner">
+            <span class="badge">Dados fictícios • Demonstração pública</span>
+            <h1>BI Agro — Fazenda Mock</h1>
+            <p class="hero-tagline">Da planilha ao painel inteligente para gestão agrícola</p>
+            <p class="hero-sub">
+                Demonstração interativa com dados fictícios de uma fazenda produtora de
+                <strong>soja, milho, sorgo, feijão e café</strong>.
+            </p>
+            <p class="hero-intro">
+                Esta demonstração mostra como controles em planilhas, lançamentos operacionais e dados
+                financeiros podem virar uma aplicação web de inteligência para gestão agrícola.
+            </p>
+            <div class="hero-cta">
+                <a class="btn btn-primary" href="https://heliosavio.com/#contato" target="_blank" rel="noopener">
+                    Quero uma solução parecida
+                </a>
+                <a class="btn btn-secondary" href="#indicadores">Ver indicadores</a>
+            </div>
+        </div>
     </header>
 
-    <main>
-        <section id="section-overview" class="section active">
-            <div class="kpi-grid">
-                <div class="kpi-card"><div class="label">Receita Total</div><div class="value" id="kpi-receita">—</div></div>
-                <div class="kpi-card"><div class="label">Resultado Gerencial</div><div class="value" id="kpi-resultado">—</div></div>
-                <div class="kpi-card"><div class="label">Produtividade Média</div><div class="value" id="kpi-prod">—</div></div>
-                <div class="kpi-card"><div class="label">Culturas Comercializadas</div><div class="value" id="kpi-contratos">—</div></div>
-            </div>
-            <div class="chart-grid">
-                <div class="chart-card"><h3>Receita e Resultado por Cultura</h3><div id="chart-overview-cultura" class="chart"></div></div>
-            </div>
-        </section>
+    <nav class="section-nav" aria-label="Seções da demonstração">
+        <a href="#visao-geral" class="nav-chip active">Visão geral</a>
+        <a href="#culturas" class="nav-chip">Culturas</a>
+        <a href="#estoques" class="nav-chip">Estoques</a>
+        <a href="#financeiro" class="nav-chip">Financeiro</a>
+        <a href="#operacoes" class="nav-chip">Operações</a>
+    </nav>
 
-        <section id="section-producao" class="section">
-            <div class="chart-card"><h3>Produtividade por Talhão (top 20)</h3><div id="chart-produtividade" class="chart"></div></div>
-            <div class="table-wrap" id="table-producao"></div>
-        </section>
+    <main id="indicadores">
+        <div id="loading-state" class="loading-state" aria-live="polite">
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Carregando indicadores da safra...</p>
+        </div>
 
-        <section id="section-custos" class="section">
-            <div class="chart-grid">
-                <div class="chart-card"><h3>Custo por Hectare</h3><div id="chart-custo-ha" class="chart"></div></div>
-            </div>
-            <div class="table-wrap" id="table-custos"></div>
-        </section>
+        <div id="app-content" class="app-content hidden">
+            <!-- 1. Visão geral -->
+            <section id="visao-geral" class="panel">
+                <div class="panel-head">
+                    <h2>Visão geral da safra</h2>
+                    <p>Resumo consolidado da operação demonstrativa.</p>
+                </div>
+                <div class="kpi-grid" id="kpi-overview"></div>
+                <div class="chart-card">
+                    <h3>Receita e resultado por cultura</h3>
+                    <div id="chart-overview" class="chart" role="img" aria-label="Gráfico de receita e resultado por cultura"></div>
+                </div>
+            </section>
 
-        <section id="section-estoques" class="section">
-            <h3 style="margin-bottom:0.5rem;color:var(--muted)">Estoque de Insumos</h3>
-            <div class="table-wrap" id="table-estoque-ins"></div>
-            <h3 style="margin:1.5rem 0 0.5rem;color:var(--muted)">Estoque de Produção</h3>
-            <div class="table-wrap" id="table-estoque-prod"></div>
-        </section>
+            <!-- 2. Resultado por cultura -->
+            <section id="culturas" class="panel">
+                <div class="panel-head">
+                    <h2>Resultado por cultura</h2>
+                    <p>Receita, custo, margem e produtividade por cultura monitorada.</p>
+                </div>
+                <div id="culture-cards" class="culture-grid"></div>
+            </section>
 
-        <section id="section-financeiro" class="section">
-            <div class="chart-card"><h3>Fluxo de Caixa — Saldo Acumulado</h3><div id="chart-fluxo" class="chart"></div></div>
-        </section>
+            <!-- 3. Estoques -->
+            <section id="estoques" class="panel">
+                <div class="panel-head">
+                    <h2>Estoques</h2>
+                    <p>Produção armazenada e insumos disponíveis.</p>
+                </div>
+                <div class="kpi-grid kpi-grid--compact" id="kpi-estoques"></div>
+                <h3 class="subheading">Produção armazenada</h3>
+                <div id="cards-estoque-prod" class="card-list"></div>
+                <h3 class="subheading">Insumos em estoque</h3>
+                <div id="cards-estoque-ins" class="card-list"></div>
+            </section>
 
-        <section id="section-contabilidade" class="section">
-            <h3 style="margin-bottom:0.5rem;color:var(--muted)">DRE Gerencial</h3>
-            <div class="table-wrap" id="table-dre"></div>
-        </section>
+            <!-- 4. Financeiro -->
+            <section id="financeiro" class="panel">
+                <div class="panel-head">
+                    <h2>Financeiro e DRE</h2>
+                    <p>Receitas, custos, despesas e resultado gerencial.</p>
+                </div>
+                <div class="kpi-grid kpi-grid--compact" id="kpi-financeiro"></div>
+                <div class="chart-card">
+                    <h3>Fluxo de caixa — saldo acumulado</h3>
+                    <div id="chart-fluxo" class="chart" role="img" aria-label="Gráfico de fluxo de caixa"></div>
+                </div>
+                <h3 class="subheading">DRE gerencial por cultura</h3>
+                <div id="cards-dre" class="card-list"></div>
+            </section>
+
+            <!-- 5. Custos e operações -->
+            <section id="operacoes" class="panel">
+                <div class="panel-head">
+                    <h2>Custos e operações</h2>
+                    <p>Custo por talhão, uso de máquinas e horas de equipe.</p>
+                </div>
+                <h3 class="subheading">Resultado por talhão</h3>
+                <div id="cards-talhao" class="card-list"></div>
+                <h3 class="subheading">Uso de máquinas na safra</h3>
+                <div id="cards-maquinas" class="card-list"></div>
+                <div class="chart-card">
+                    <h3>Horas de mão de obra por equipe</h3>
+                    <div id="chart-mao-obra" class="chart chart--short" role="img" aria-label="Gráfico de horas de mão de obra"></div>
+                </div>
+            </section>
+
+            <!-- 6. Bloco comercial -->
+            <section id="comercial" class="panel panel--cta">
+                <h2>Sua empresa ainda controla isso em planilhas?</h2>
+                <p>
+                    Eu transformo controles operacionais em aplicações web, dashboards e bases de dados
+                    estruturadas para que a gestão seja mais rápida, confiável e visual.
+                </p>
+                <a class="btn btn-primary btn-lg" href="https://heliosavio.com/#contato" target="_blank" rel="noopener">
+                    Conversar sobre meu projeto
+                </a>
+            </section>
+        </div>
+
+        <div id="error-state" class="error-state hidden" role="alert">
+            <p>Não foi possível carregar os indicadores agora. Tente novamente em instantes.</p>
+        </div>
     </main>
+
+    <footer class="site-footer">
+        <p class="disclaimer">
+            Todos os dados desta demonstração são fictícios e foram criados apenas para fins de portfólio.
+        </p>
+        <p class="footer-meta">
+            <a href="https://heliosavio.com" target="_blank" rel="noopener">heliosavio.com</a>
+            · BI Agro — Fazenda Mock
+        </p>
+    </footer>
 
     <script type="module" src="js/app.js"></script>
 </body>

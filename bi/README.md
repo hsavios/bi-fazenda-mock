@@ -1,6 +1,6 @@
-﻿# Dashboard BI — HTML5/CSS/JavaScript
+﻿# BI Agro — Fazenda Mock (demonstração comercial)
 
-Dashboard analítico para a base mock `agro_fazenda_mock`.
+Demonstração interativa mobile-first para portfólio. Consome dados fictícios via `/api` (proxy nginx → leitura readonly).
 
 ## Stack
 
@@ -8,33 +8,33 @@ Dashboard analítico para a base mock `agro_fazenda_mock`.
 |--------|------------|
 | Frontend | HTML5, CSS3, vanilla JavaScript (ES modules) |
 | Gráficos | Apache ECharts (CDN) |
-| API | PostgREST v12 (read-only) |
+| Dados | Views KPI do schema `agro` (somente leitura) |
 | Servidor | nginx:alpine |
 
 ## Deploy
 
-Pré-requisito: banco provisionado com `./scripts/deploy_agro_fazenda_mock_vps.sh --yes`
-
 ```bash
 ./scripts/deploy_bi_vps.sh
+./scripts/validate_bi_vps.sh
 ```
 
-Acesse: http://127.0.0.1:8088
+Acesse: http://127.0.0.1:8088 (VPS) ou a porta em `.env.bi`.
 
-## Desenvolvimento local
+## Seções da demo
 
-1. Suba PostgREST + nginx: `docker compose -f docker-compose.bi.yml up -d`
-2. Abra http://127.0.0.1:8088
+1. **Visão geral da safra** — receita, custo, margem, culturas, área
+2. **Resultado por cultura** — cards por soja, milho, sorgo, feijão, café
+3. **Estoques** — produção armazenada e insumos
+4. **Financeiro e DRE** — KPIs, fluxo de caixa, DRE por cultura
+5. **Custos e operações** — talhões, máquinas, mão de obra
+6. **Bloco comercial** — CTA para contato
 
-## Páginas
+## Views consumidas
 
-- Visão geral — KPIs e receita por cultura
-- Produção — produtividade por talhão
-- Custos — custo/hectare e margem bruta
-- Estoques — insumos e produção
-- Financeiro — fluxo de caixa
-- Contabilidade — DRE gerencial
+`vw_dre_gerencial`, `vw_margem_bruta_cultura`, `vw_resultado_gerencial_cultura`, `vw_custo_hectare_cultura_safra`, `vw_comercializacao_cultura`, `vw_produtividade_talhao`, `vw_estoque_insumos_atual`, `vw_estoque_producao_atual`, `vw_fluxo_caixa_realizado`, `vw_resultado_talhao`, `vw_uso_maquinas_safra`, `vw_horas_mao_obra_safra`
 
 ## Segurança
 
-PostgREST usa a role `agro_mock_readonly` com SELECT apenas nas views do schema `agro`.
+- Frontend usa apenas `/api` (nunca porta direta do backend de dados)
+- Role readonly com SELECT somente nas views KPI
+- Aviso de dados fictícios visível na página

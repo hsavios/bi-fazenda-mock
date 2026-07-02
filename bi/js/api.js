@@ -1,16 +1,13 @@
 ﻿/**
- * Cliente API — PostgREST
- * Em produção com nginx: /api/ | Desenvolvimento local: http://127.0.0.1:3000
+ * Cliente de dados — caminhos relativos via nginx (/api → PostgREST interno)
  */
-const API_BASE = window.location.port === '8088' || window.location.hostname !== 'localhost'
-    ? '/api'
-    : 'http://127.0.0.1:3000';
+const API_BASE = '/api';
 
 async function fetchView(viewName, params = {}) {
     const url = new URL(`${API_BASE}/${viewName}`, window.location.origin);
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error(`API ${viewName}: ${res.status} ${res.statusText}`);
+    if (!res.ok) throw new Error(`Não foi possível carregar ${viewName}`);
     return res.json();
 }
 
@@ -24,4 +21,13 @@ function formatCurrency(n) {
     return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export { fetchView, formatNumber, formatCurrency, API_BASE };
+function formatPct(n) {
+    if (n == null || isNaN(n)) return '—';
+    return formatNumber(n, 1) + '%';
+}
+
+function sumField(rows, key) {
+    return rows.reduce((s, r) => s + Number(r[key] || 0), 0);
+}
+
+export { fetchView, formatNumber, formatCurrency, formatPct, sumField, API_BASE };
