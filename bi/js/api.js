@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cliente de dados — caminhos relativos via nginx (/api → PostgREST interno)
  */
 const API_BASE = '/api';

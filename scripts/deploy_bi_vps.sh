@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # Deploy do stack BI (PostgREST + nginx) na VPS
 set -Eeuo pipefail
 
@@ -177,6 +177,9 @@ log "Config gerada: $ENV_FILE"
 write_compose_override
 
 # nginx precisa ler arquivos estáticos montados do host
+# BOM no início do arquivo quebra CSS (:root) e ES modules (import)
+find "$PROJECT_ROOT/bi" -type f \( -name '*.css' -o -name '*.js' -o -name '*.html' \) \
+    -exec sed -i '1s/^\xEF\xBB\xBF//' {} + 2>/dev/null || true
 chmod -R a+rX "$PROJECT_ROOT/bi"
 
 cd "$PROJECT_ROOT"

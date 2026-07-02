@@ -1,4 +1,4 @@
-﻿import {
+import {
     fetchView,
     formatNumber,
     formatCurrency,
@@ -504,10 +504,6 @@ async function loadDashboard() {
     const loadingText = el('loading-text');
 
     try {
-        if (typeof echarts === 'undefined') {
-            throw new Error('Biblioteca de gráficos indisponível. Verifique sua conexão.');
-        }
-
         const { data, errors } = await fetchAllViews((done, total) => {
             if (loadingText) loadingText.textContent = `Carregando indicadores (${done}/${total})...`;
         });
