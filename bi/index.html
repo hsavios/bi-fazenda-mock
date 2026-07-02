@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=5.7">
+    <link rel="stylesheet" href="css/styles.css?v=5.8">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=5.7"></script>
+    <script type="module" src="js/app.js?v=5.8"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -387,59 +387,59 @@
                                 </div>
                             </div>
                             <div class="field-subpanel hidden" data-field-subpanel="visualizacoes">
-                                <header class="field-viz-head">
-                                    <h3 class="block-title">Visualizações da Safra</h3>
-                                    <p class="chart-desc">Análises visuais de produtividade, custo e ganho/perda</p>
-                                </header>
-                                <div class="operations-visual-panel">
+                                <div class="operations-visualizations-view">
+                                    <header class="operations-visualizations-header">
+                                        <h3 class="block-title">Visualizações da Safra</h3>
+                                        <p class="chart-desc">Análises visuais de produtividade, custo e ganho/perda</p>
+                                    </header>
                                     <div class="operations-visual-grid">
-                                        <div class="bi-chart-card">
+                                        <div class="bi-chart-card bi-chart-card--viz">
                                             <div class="bi-chart-card__header">
                                                 <h3>Produtividade × Custo/ha</h3>
                                                 <p>Bolha = resultado · cor = positivo/negativo</p>
                                             </div>
                                             <div class="bi-chart-card__body">
-                                                <div id="chart-scatter-prod-custo" class="bi-chart bi-chart--lg chart chart--lg"></div>
+                                                <div id="chart-scatter-prod-custo" class="bi-chart bi-chart--viz chart"></div>
                                             </div>
                                             <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                         </div>
-                                        <div class="bi-chart-card">
+                                        <div class="bi-chart-card bi-chart-card--viz">
                                             <div class="bi-chart-card__header">
                                                 <h3>Ganho/perda vs média da cultura</h3>
                                                 <p>Impacto econômico estimado por produtividade</p>
                                             </div>
                                             <div class="bi-chart-card__body">
-                                                <div id="chart-ganho-perda" class="bi-chart bi-chart--md chart chart--md"></div>
+                                                <div id="chart-ganho-perda" class="bi-chart bi-chart--viz chart"></div>
                                             </div>
                                             <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                         </div>
-                                        <div class="bi-chart-card">
+                                        <div class="bi-chart-card bi-chart-card--viz">
                                             <div class="bi-chart-card__header">
                                                 <h3>Pareto de custos por talhão</h3>
                                                 <p>Top 8 · concentração acumulada</p>
                                             </div>
                                             <div class="bi-chart-card__body">
-                                                <div id="chart-pareto-talhao" class="bi-chart bi-chart--md chart chart--md"></div>
+                                                <div id="chart-pareto-talhao" class="bi-chart bi-chart--viz chart"></div>
                                             </div>
                                             <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                         </div>
-                                        <div class="bi-chart-card">
+                                        <div class="bi-chart-card bi-chart-card--viz">
                                             <div class="bi-chart-card__header">
                                                 <h3>Heatmap talhão × cultura</h3>
                                                 <p>Intensidade de custo/ha operacional</p>
                                             </div>
                                             <div class="bi-chart-card__body">
-                                                <div id="chart-heatmap-talhao" class="bi-chart bi-chart--heatmap chart chart--heatmap"></div>
+                                                <div id="chart-heatmap-talhao" class="bi-chart bi-chart--viz chart"></div>
                                             </div>
                                             <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                         </div>
-                                        <div class="bi-chart-card">
+                                        <div class="bi-chart-card bi-chart-card--viz">
                                             <div class="bi-chart-card__header">
                                                 <h3>Ranking de resultado por talhão</h3>
                                                 <p>Top 8 talhões por resultado estimado</p>
                                             </div>
                                             <div class="bi-chart-card__body">
-                                                <div id="chart-ranking-talhao" class="bi-chart bi-chart--md chart chart--md"></div>
+                                                <div id="chart-ranking-talhao" class="bi-chart bi-chart--viz chart"></div>
                                             </div>
                                             <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                         </div>

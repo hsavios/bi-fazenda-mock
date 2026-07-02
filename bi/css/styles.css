@@ -2328,8 +2328,83 @@ th.cash-matrix--hot {
     overflow: hidden;
 }
 
-/* Operações — painel e cards de gráficos */
-.operations-visual-panel,
+/* Operações — sub-aba Visualizações */
+.operations-visualizations-view {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.operations-visualizations-header {
+    flex: 0 0 auto;
+    margin-bottom: 12px;
+}
+
+.operations-visualizations-header .block-title {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.operations-visualizations-header .chart-desc {
+    margin: 0.2rem 0 0;
+    font-size: 0.68rem;
+    color: var(--muted);
+}
+
+.operations-visual-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(340px, auto);
+    gap: 16px;
+    padding: 0 6px 12px 0;
+    align-content: start;
+}
+
+@media (max-width: 1280px) {
+    .operations-visual-grid {
+        grid-template-columns: 1fr;
+        grid-auto-rows: minmax(340px, auto);
+    }
+}
+
+.bi-chart-card--viz {
+    min-height: 340px;
+}
+
+.operations-visual-grid .bi-chart-card__body {
+    min-height: 300px;
+}
+
+.operations-visual-grid .bi-chart--viz {
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+}
+
+.operations-chart-empty-host {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.45;
+    background: linear-gradient(180deg, #fafcfb 0%, #f4f8f5 100%);
+    border-radius: 8px;
+}
+
+/* Operações — painel máquinas (visualizações compactas) */
 .operations-maquinas-viz-panel {
     flex: 1;
     min-height: 0;
@@ -2339,35 +2414,17 @@ th.cash-matrix--hot {
     overflow: hidden;
 }
 
-.operations-visual-grid {
-    display: grid;
+.operations-maquinas-viz-panel .operations-visual-grid {
     grid-template-columns: 1fr;
     grid-auto-rows: minmax(320px, auto);
-    gap: 16px;
-    overflow: auto;
-    padding-right: 4px;
-    min-height: 0;
-    flex: 1;
-    align-content: start;
+    padding: 0.65rem;
+    max-height: 720px;
 }
 
 @media (min-width: 900px) {
-    .operations-visual-grid {
+    .operations-maquinas-viz-panel .operations-visual-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-auto-rows: minmax(320px, auto);
     }
-}
-
-@media (max-width: 1200px) {
-    .operations-visual-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.operations-visual-grid--compact {
-    padding: 0.65rem;
-    max-height: 720px;
-    overflow-y: auto;
 }
 
 .field-maquinas-wrap {

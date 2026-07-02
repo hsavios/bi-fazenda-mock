@@ -5,13 +5,13 @@
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=5.7';
+} from './api.js?v=5.8';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
     buildStockPanelInsights,
     renderInsightCards
-} from './insights.js?v=5.7';
+} from './insights.js?v=5.8';
 import {
     buildDecisionQuestions,
     buildCommercialSummary,
@@ -19,20 +19,20 @@ import {
     renderDecisionCards,
     renderSelectedQuestionPanel,
     renderCommercialTable
-} from './decisionQuestions.js?v=5.7';
-import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.7';
-import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.7';
-import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.7';
-import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.7';
-import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.7';
+} from './decisionQuestions.js?v=5.8';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.8';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.8';
+import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.8';
+import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.8';
+import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.8';
 import {
     registerBiChart,
     unregisterBiChart,
     resizeVisibleCharts,
     scheduleChartResize,
     installChartDebugGlobals
-} from './chartResize.js?v=5.7';
-import { aggregateCashByMonth } from './cashFlow.js?v=5.7';
+} from './chartResize.js?v=5.8';
+import { aggregateCashByMonth } from './cashFlow.js?v=5.8';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -44,7 +44,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=5.7';
+} from './charts.js?v=5.8';
 import {
     initFilters,
     loadFilterState,
@@ -56,7 +56,7 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=5.7';
+} from './filters.js?v=5.8';
 
 const charts = {};
 const chartsReady = new Set();
@@ -162,7 +162,7 @@ function setupChartResizeObserver() {
 function observeChartContainers() {
     if (!chartResizeObserver) return;
     document.querySelectorAll(
-        '.chart-body, .bi-chart-card__body, .chart-card-body, .bi-chart-card, .operations-visual-panel, .operations-maquinas-viz-panel'
+        '.chart-body, .bi-chart-card__body, .chart-card-body, .bi-chart-card, .operations-visualizations-view, .operations-maquinas-viz-panel'
     ).forEach(node => {
         if (node.dataset.resizeObserved) return;
         node.dataset.resizeObserved = '1';

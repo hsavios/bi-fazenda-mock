@@ -1,7 +1,7 @@
 ﻿/**
  * Builders ECharts — visualizações avançadas do cockpit.
  */
-import { formatCurrency, formatNumber, formatPct } from './api.js?v=5.7';
+import { formatCurrency, formatNumber, formatPct } from './api.js?v=5.8';
 
 export const CHART_COLORS = {
     primary: '#2d6a4f',
