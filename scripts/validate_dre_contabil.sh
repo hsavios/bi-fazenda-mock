@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # Valida integridade contábil e views da DRE gerencial
 set -Eeuo pipefail
 
@@ -84,16 +84,41 @@ FROM agro.vw_dre_gerencial_resumo
 WHERE cultura_nome = 'Consolidado' AND linha_dre = 'Receita bruta';" "ok"
 
 check_sql "Resultado líquido coerente com somatório resumo" "
-WITH s AS (
-  SELECT SUM(valor) AS v FROM agro.vw_dre_gerencial_resumo
-  WHERE cultura_nome = 'Consolidado' AND safra_codigo = '2024/25'
+WITH dre AS (
+  SELECT
+    linha_dre,
+    round(sum(valor)::numeric, 2) AS valor
+  FROM agro.vw_dre_gerencial_resumo
+  WHERE cultura_nome = 'Consolidado'
+  GROUP BY linha_dre
 ),
-r AS (
-  SELECT SUM(valor) AS v FROM agro.vw_dre_gerencial_resumo
-  WHERE cultura_nome = 'Consolidado' AND safra_codigo = '2024/25'
-    AND linha_dre = 'Resultado líquido gerencial'
+valores AS (
+  SELECT
+    (SELECT count(*) FROM dre) AS qtd_linhas,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Receita bruta'), 0) AS receita_bruta,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Deduções'), 0) AS deducoes,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Receita líquida'), 0) AS receita_liquida,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Custos variáveis'), 0) AS custos_variaveis,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Margem bruta'), 0) AS margem_bruta,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Custos fixos'), 0) AS custos_fixos,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Resultado atividade agrícola'), 0) AS resultado_atividade,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Despesas comerciais'), 0) AS despesas_comerciais,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Despesas administrativas'), 0) AS despesas_admin,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'EBITDA'), 0) AS ebitda,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Depreciação/amortização'), 0) AS depreciacao,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Resultado operacional'), 0) AS resultado_operacional,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Resultado financeiro'), 0) AS resultado_financeiro,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Resultado antes impostos'), 0) AS resultado_antes_impostos,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Tributos'), 0) AS tributos,
+    COALESCE(MAX(valor) FILTER (WHERE linha_dre = 'Resultado líquido gerencial'), 0) AS resultado_liquido
+  FROM dre
 )
-SELECT CASE WHEN abs((SELECT v FROM s WHERE false) IS NULL) OR (SELECT v FROM r) IS NOT NULL THEN 'ok' ELSE 'fail' END;" "ok"
+SELECT CASE
+  WHEN qtd_linhas < 16 THEN 'linhas_incompletas'
+  WHEN ABS(resultado_liquido - (resultado_antes_impostos + tributos)) <= 1.00 THEN 'ok'
+  ELSE 'erro'
+END
+FROM valores;" "ok"
 
 DRE_VIEWS=(
     vw_dre_gerencial_contabil
