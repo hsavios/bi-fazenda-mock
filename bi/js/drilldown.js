@@ -9,6 +9,7 @@ let subtitleEl;
 let statusEl;
 let bodyEl;
 let insightEl;
+let actionEl;
 let closeBtn;
 
 let onCloseCallback = null;
@@ -22,6 +23,7 @@ export function initDrilldown(onClose) {
     statusEl = document.getElementById('drilldown-status');
     bodyEl = document.getElementById('drilldown-body');
     insightEl = document.getElementById('drilldown-insight');
+    actionEl = document.getElementById('drilldown-action');
     closeBtn = document.getElementById('drilldown-close');
 
     closeBtn?.addEventListener('click', closeDrilldown);
@@ -39,8 +41,9 @@ export function initDrilldown(onClose) {
  * @param {string} [opts.statusLabel]
  * @param {Array<{label:string,value:string,highlight?:boolean}>} opts.metrics
  * @param {{title:string,text:string,tone?:string}} [opts.insight]
+ * @param {string} [opts.nextAction]
  */
-export function openDrilldown({ title, subtitle, status, statusLabel, metrics = [], insight }) {
+export function openDrilldown({ title, subtitle, status, statusLabel, metrics = [], insight, nextAction }) {
     if (!drawerEl) return;
 
     if (titleEl) titleEl.textContent = title;
@@ -76,6 +79,16 @@ export function openDrilldown({ title, subtitle, status, statusLabel, metrics = 
         } else {
             insightEl.classList.add('hidden');
             insightEl.innerHTML = '';
+        }
+    }
+    if (actionEl) {
+        if (nextAction) {
+            actionEl.className = 'drilldown-action';
+            actionEl.innerHTML = `<p><strong>Próxima ação:</strong> ${nextAction}</p>`;
+            actionEl.classList.remove('hidden');
+        } else {
+            actionEl.classList.add('hidden');
+            actionEl.innerHTML = '';
         }
     }
 

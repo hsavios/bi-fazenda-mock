@@ -1,7 +1,7 @@
 /**
  * Insights interpretativos gerados por regras simples sobre os dados carregados.
  */
-import { formatCurrency, formatCurrencyCompact, formatNumber, formatPct, sumField } from './api.js?v=4.1';
+import { formatCurrency, formatCurrencyCompact, formatNumber, formatPct, sumField } from './api.js?v=4.3';
 
 function pctShare(value, total) {
     if (!total) return 0;
@@ -59,7 +59,7 @@ export function buildExecutiveInsights(store) {
     if (topReceita) {
         insights.push(insightCard(
             'Concentração de receita',
-            `${topReceita.cultura_nome} concentra ${formatPct(pctShare(topReceita.receita_bruta, receitaTotal))} da receita total da safra.`,
+            `${topReceita.cultura_nome} concentra ${formatPct(pctShare(topReceita.receita_bruta, receitaTotal))} da receita — priorize acompanhamento de preço, contratos e proteção de margem nesta cultura.`,
             'info'
         ));
     }
@@ -90,7 +90,7 @@ export function buildExecutiveInsights(store) {
         const custo = Number(worstResult.custos_variaveis) + Number(worstResult.custos_fixos);
         insights.push(insightCard(
             'Custo x retorno',
-            `${worstResult.cultura_nome} tem custo elevado (${formatCurrencyCompact(custo)}) frente ao resultado, exigindo atenção.`,
+            `${worstResult.cultura_nome} exige atenção: o custo relativo (${formatCurrencyCompact(custo)}) frente ao resultado reduz a eficiência econômica — revisar manejo e insumos.`,
             'warn'
         ));
     }
@@ -113,7 +113,7 @@ export function buildExecutiveInsights(store) {
     if (topTalhao) {
         insights.push(insightCard(
             'Custos operacionais',
-            `Custos de operação concentrados em poucos talhões — destaque para ${topTalhao.talhao_codigo}.`,
+            `Os custos estão concentrados em poucos talhões — destaque para ${topTalhao.talhao_codigo}. Em uma operação real, esse padrão indicaria prioridade de auditoria técnica e revisão de manejo.`,
             'warn'
         ));
     }
@@ -209,7 +209,7 @@ export function buildTalhaoInsight(talhao) {
     return [
         insightCard(
             'Análise operacional',
-            `${talhao.talhao_codigo} está entre os maiores custos da safra e deve ser investigado em uma operação real.`,
+            `${talhao.talhao_codigo} está entre os maiores custos da safra e deve ser investigado — em uma base real, priorizaria revisão de manejo e composição de custo para proteger margem.`,
             Number(talhao.resultado_estimado) < 0 ? 'warn' : 'info'
         )
     ];
@@ -239,7 +239,7 @@ export function buildOperationsInsights(store) {
         const totalCusto = sumField(talhoes, 'custo_total');
         insights.push(insightCard(
             'Maior concentração de custo',
-            `${topCusto.talhao_codigo} aparece como maior concentração de custo operacional (${formatPct(pctShare(topCusto.custo_total, totalCusto))}).`,
+            `${topCusto.talhao_codigo} concentra ${formatPct(pctShare(topCusto.custo_total, totalCusto))} do custo operacional — investigar concentração e redistribuir recursos se necessário.`,
             'warn'
         ));
     }
@@ -256,7 +256,7 @@ export function buildOperationsInsights(store) {
     if (lowMargin) {
         insights.push(insightCard(
             'Menor margem',
-            `${lowMargin.cultura_nome} tem a menor margem entre as culturas monitoradas.`,
+            `${lowMargin.cultura_nome} tem a menor margem entre as culturas — acompanhar preço médio e custos para proteger resultado.`,
             'warn'
         ));
     }

@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=4.1">
+    <link rel="stylesheet" href="css/styles.css?v=4.3">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=4.1"></script>
+    <script type="module" src="js/app.js?v=4.3"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -44,6 +44,10 @@
             <button type="button" class="tab" data-tab="operacoes">
                 <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></span>
                 <span class="tab-label">Operações</span>
+            </button>
+            <button type="button" class="tab" data-tab="perguntas">
+                <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.09 9a3 3 0 1 1 5.82 1c0 2-3 3-3 3"/><circle cx="12" cy="12" r="10"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+                <span class="tab-label">Perguntas</span>
             </button>
             <div class="nav-separator" aria-hidden="true"></div>
             <button type="button" class="tab tab--muted" data-tab="sobre">
@@ -206,6 +210,34 @@
                     </div>
                 </section>
 
+                <!-- Perguntas do Gestor -->
+                <section id="perguntas" class="view-panel dashboard-section" data-view="perguntas">
+                    <div class="questions-layout">
+                        <header class="view-head view-head--compact">
+                            <h2>Perguntas do Gestor</h2>
+                            <p class="view-subtitle">Respostas automáticas a partir dos dados operacionais e financeiros</p>
+                        </header>
+                        <div class="questions-body">
+                            <div class="questions-cards-scroll" id="decision-cards"></div>
+                            <aside class="questions-side">
+                                <h3 class="block-title">Resumo executivo</h3>
+                                <div id="decision-alerts" class="insights-list insights-list--compact"></div>
+                                <h3 class="block-title">Comercialização</h3>
+                                <p class="comercial-disclaimer">Visão agregada por cultura. Contrato individual na próxima camada de views.</p>
+                                <div class="kpi-row kpi-row--4 kpi-row--compact" id="kpi-comercial"></div>
+                                <div class="chart-card chart-card--sm">
+                                    <h3>Contratado × entregue × saldo</h3>
+                                    <div class="chart-body"><div id="chart-comercial-stack" class="chart"></div></div>
+                                </div>
+                            </aside>
+                        </div>
+                        <div class="questions-bottom panel-scroll">
+                            <h3 class="block-title">Matriz de caixa por mês</h3>
+                            <div id="cash-matrix" class="cash-matrix-wrap"></div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Sobre -->
                 <section id="sobre" class="view-panel dashboard-section view-panel--sobre" data-view="sobre">
                     <div class="sobre-card">
@@ -253,6 +285,7 @@
         </header>
         <div id="drilldown-body" class="drilldown-body"></div>
         <div id="drilldown-insight" class="drilldown-insight hidden"></div>
+        <div id="drilldown-action" class="drilldown-action hidden"></div>
     </aside>
 </body>
 </html>

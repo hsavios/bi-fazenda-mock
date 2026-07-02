@@ -5,7 +5,7 @@ import {
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=4.1';
+} from './api.js?v=4.3';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
@@ -15,8 +15,15 @@ import {
     buildTalhaoInsight,
     buildFinancialInsight,
     renderInsightCards
-} from './insights.js?v=4.1';
-import { initDrilldown, openDrilldown } from './drilldown.js?v=4.1';
+} from './insights.js?v=4.3';
+import {
+    buildDecisionQuestions,
+    buildDecisionDrilldown,
+    buildCommercialSummary,
+    renderDecisionCards,
+    renderCashMatrix
+} from './decisionQuestions.js?v=4.3';
+import { initDrilldown, openDrilldown } from './drilldown.js?v=4.3';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -28,13 +35,14 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=4.1';
+} from './charts.js?v=4.3';
 
 const charts = {};
 const chartsReady = new Set();
 let chartResizeObserver = null;
+let decisionCards = [];
 const DEBUG_BI = location.hostname === 'localhost' || location.search.includes('debug=1');
-const TABS = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'operacoes', 'sobre'];
+const TABS = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'operacoes', 'perguntas', 'sobre'];
 const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
 
 let store = {};
@@ -309,6 +317,78 @@ function bindTalhaoChartClick(chartId, talhaoCodes) {
         const code = params.name || talhaoCodes[params.dataIndex];
         if (code) openTalhaoDrilldown(code);
     });
+}
+
+function openDecisionById(id) {
+    const card = decisionCards.find(c => c.id === id);
+    if (!card) return;
+    const drill = buildDecisionDrilldown(card, store);
+    if (drill) openDrilldown(drill);
+}
+
+function openCashMonthDrilldown(month) {
+    const card = {
+        id: `cash-${month.monthKey}`,
+        question: 'Em quais meses há maior pressão de caixa?',
+        answer: `${month.monthLabel} concentra movimentação relevante de caixa na safra demonstrativa.`,
+        tone: month.pressao > 0 ? 'warn' : 'info',
+        drillType: 'cashMonth',
+        payload: { monthKey: month.monthKey, monthLabel: month.monthLabel }
+    };
+    const drill = buildDecisionDrilldown(card, store);
+    if (drill) openDrilldown(drill);
+}
+
+function bindDecisionClicks() {
+    document.getElementById('decision-cards')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-decision-id]');
+        const id = btn?.dataset.decisionId;
+        if (id) openDecisionById(id);
+    });
+}
+
+function renderPerguntas(drawChart = false) {
+    decisionCards = buildDecisionQuestions(store);
+    renderDecisionCards(el('decision-cards'), decisionCards);
+
+    const alerts = decisionCards
+        .filter(c => c.tone === 'warn' || c.tone === 'critical')
+        .slice(0, 5)
+        .map(c => ({
+            title: c.question.length > 48 ? c.question.slice(0, 48) + '…' : c.question,
+            text: c.answer,
+            tone: c.tone
+        }));
+    renderInsightCards(el('decision-alerts'), alerts.length ? alerts : [{
+        title: 'Situação geral',
+        text: 'Nenhum alerta crítico identificado nas regras atuais. Manter rotina de acompanhamento.',
+        tone: 'positive'
+    }]);
+
+    const com = buildCommercialSummary(store.comercial || []);
+    const pctEntregue = com.totalContratado
+        ? (com.totalEntregue / com.totalContratado) * 100
+        : 0;
+
+    renderKpis('kpi-comercial', [
+        { label: 'Contratado', value: formatNumber(com.totalContratado, 0) + ' sc', hint: '' },
+        { label: 'Entregue', value: formatNumber(com.totalEntregue, 0) + ' sc', hint: '', tone: 'positive' },
+        { label: 'Saldo a entregar', value: formatNumber(com.totalPendente, 0) + ' sc', hint: '', tone: com.totalPendente > 0 ? 'warn' : 'positive' },
+        { label: '% entregue', value: formatPct(pctEntregue), hint: com.topPendente ? `Maior saldo: ${com.topPendente.cultura_nome}` : '' }
+    ]);
+
+    renderCashMatrix(el('cash-matrix'), store.fluxo, openCashMonthDrilldown);
+
+    if (!drawChart) return;
+
+    const rows = com.rows.filter(r => Number(r.volume_contratado_sc) > 0);
+    if (rows.length) {
+        const cats = rows.map(r => r.cultura_nome);
+        setChart('chart-comercial-stack', stackedBarOption(cats, [
+            { name: 'Entregue', data: cats.map(n => rows.find(r => r.cultura_nome === n)?.volume_entregue_sc || 0) },
+            { name: 'Saldo a entregar', data: cats.map(n => rows.find(r => r.cultura_nome === n)?.volume_pendente_sc || 0) }
+        ]));
+    }
 }
 
 /* ─── Visão Geral ─── */
@@ -672,6 +752,9 @@ function refreshChartsForTab(tabId) {
             case 'operacoes':
                 renderOperacoes(store.talhoes, store.maquinas, store.maoObra, true);
                 break;
+            case 'perguntas':
+                renderPerguntas(true);
+                break;
             default:
                 break;
         }
@@ -788,12 +871,14 @@ async function loadDashboard() {
         renderEstoques(data.insumos, data.producao, false);
         renderFinanceiro(data.dre, data.fluxo, false);
         renderOperacoes(data.talhoes, data.maquinas, data.maoObra, false);
+        renderPerguntas(false);
 
         showDashboard();
         initDrilldown(() => {
             requestAnimationFrame(resizeVisibleCharts);
         });
         bindDrilldownClicks();
+        bindDecisionClicks();
         setupChartResizeObserver();
         setupTabs();
         refreshChartsForTab('visao-geral');
