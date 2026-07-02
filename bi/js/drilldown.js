@@ -43,7 +43,7 @@ export function initDrilldown(onClose) {
  * @param {{title:string,text:string,tone?:string}} [opts.insight]
  * @param {string} [opts.nextAction]
  */
-export function openDrilldown({ title, subtitle, status, statusLabel, metrics = [], insight, nextAction, filterContext }) {
+export function openDrilldown({ title, subtitle, status, statusLabel, metrics = [], rows, insight, nextAction, filterContext, source }) {
     if (!drawerEl) return;
 
     if (titleEl) titleEl.textContent = title;
@@ -71,12 +71,32 @@ export function openDrilldown({ title, subtitle, status, statusLabel, metrics = 
         }
     }
     if (bodyEl) {
-        bodyEl.innerHTML = metrics.map(m => `
+        let html = metrics.map(m => `
             <div class="drill-metric${m.highlight ? ' drill-metric--highlight' : ''}">
                 <span class="drill-metric-label">${m.label}</span>
                 <span class="drill-metric-value"${m.title ? ` title="${m.title}"` : ''}>${m.value}</span>
             </div>
         `).join('');
+        if (rows?.length) {
+            html += `<div class="drill-rows"><h4 class="drill-rows-title">Detalhes</h4>${rows.map(r => `
+                <div class="drill-row">
+                    <span class="drill-row-label">${r.label}</span>
+                    <span class="drill-row-value">${r.value}</span>
+                    ${r.meta ? `<span class="drill-row-meta">${r.meta}</span>` : ''}
+                </div>
+            `).join('')}</div>`;
+        }
+        bodyEl.innerHTML = html;
+    }
+    const sourceEl = document.getElementById('drilldown-source');
+    if (sourceEl) {
+        if (source) {
+            sourceEl.textContent = `Fonte: ${source}`;
+            sourceEl.classList.remove('hidden');
+        } else {
+            sourceEl.classList.add('hidden');
+            sourceEl.textContent = '';
+        }
     }
     if (insightEl) {
         if (insight) {

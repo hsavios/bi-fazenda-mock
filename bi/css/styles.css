@@ -604,6 +604,27 @@ body.filter-open { overflow: hidden; }
 .kpi-card--warn::before { background: var(--amber); opacity: 1; }
 .kpi-card--critical::before { background: var(--negative); opacity: 1; }
 
+.kpi-card--clickable {
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+}
+
+.kpi-card--clickable:hover,
+.kpi-card--clickable:focus-visible {
+    border-color: var(--accent-light);
+    box-shadow: var(--shadow-md);
+    outline: none;
+}
+
+.kpi-card--clickable:active { transform: scale(0.995); }
+
+.kpi-drill-hint {
+    font-size: 0.62rem;
+    color: var(--muted);
+    margin-top: 0.15rem;
+    opacity: 0.85;
+}
+
 .kpi-label {
     font-size: 0.6rem;
     font-weight: 600;
@@ -663,6 +684,17 @@ body.filter-open { overflow: hidden; }
     color: var(--muted);
     flex-shrink: 0;
     padding: 0 0.1rem 0.2rem;
+}
+
+.chart-card:has(.chart)::after {
+    content: 'Clique nos elementos para detalhar';
+    display: block;
+    font-size: 0.62rem;
+    color: var(--muted);
+    margin-top: 0.15rem;
+    padding: 0 0.1rem;
+    opacity: 0.85;
+    flex-shrink: 0;
 }
 
 .chart-body {
@@ -894,6 +926,24 @@ body.filter-open { overflow: hidden; }
 }
 
 .ranking-row:hover { background: #eef5f0; }
+
+.drill-row-clickable {
+    cursor: pointer;
+}
+
+.drill-row-clickable:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.row-drill-hint {
+    opacity: 0.72;
+    font-size: 0.68em;
+}
+
+.compact-table tbody tr.drill-row-clickable:hover td {
+    background: #eef5f0;
+}
 
 .ranking-pos { font-size: 0.68rem; font-weight: 700; color: var(--accent); text-align: center; }
 .ranking-name { font-size: 0.76rem; font-weight: 700; color: var(--accent-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1493,6 +1543,45 @@ th.cash-matrix--hot {
 
 .drill-metric-label { color: var(--muted); }
 .drill-metric-value { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+
+.drill-rows {
+    margin-top: 0.65rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid var(--border-light);
+}
+
+.drill-rows-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--accent-dark);
+    margin-bottom: 0.35rem;
+}
+
+.drill-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.25rem 0.75rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 0.78rem;
+}
+
+.drill-row-meta {
+    grid-column: 1 / -1;
+    font-size: 0.68rem;
+    color: var(--muted);
+}
+
+.drill-row-label { color: var(--text); }
+.drill-row-value { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+.drilldown-source {
+    flex-shrink: 0;
+    margin: 0 1rem 0.35rem;
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-style: italic;
+}
 
 .drilldown-insight {
     flex-shrink: 0;

@@ -7,8 +7,8 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=4.8';
-import { aggregateDreByCulture } from './insights.js?v=4.8';
+} from './api.js?v=4.9';
+import { aggregateDreByCulture } from './insights.js?v=4.9';
 
 const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 

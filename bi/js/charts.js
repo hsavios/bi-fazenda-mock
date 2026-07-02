@@ -1,7 +1,7 @@
 /**
  * Builders ECharts — visualizações avançadas do cockpit.
  */
-import { formatCurrency, formatNumber, formatPct } from './api.js?v=4.8';
+import { formatCurrency, formatNumber, formatPct } from './api.js?v=4.9';
 
 export const CHART_COLORS = {
     primary: '#2d6a4f',
@@ -16,6 +16,8 @@ export const CHART_COLORS = {
 };
 
 export const CHART_PALETTE = ['#2d6a4f', '#40916c', '#52b788', '#b8860b', '#74c69d', '#c0392b'];
+
+export const DRILL_HINT = '<br><span style="opacity:0.72;font-size:10px">Clique para detalhar</span>';
 
 const baseGrid = { left: 48, right: 16, top: 28, bottom: 36, containLabel: false };
 
@@ -62,7 +64,7 @@ export function waterfallOption(steps) {
                 const raw = values[idx];
                 const step = steps[idx];
                 const sign = step.type === 'subtract' ? '−' : '';
-                return `${step.label}<br>${sign}${formatCurrency(Math.abs(raw))}`;
+                return `${step.label}<br>${sign}${formatCurrency(Math.abs(raw))}${DRILL_HINT}`;
             }
         },
         grid: { ...baseGrid, bottom: 48 },
@@ -109,14 +111,13 @@ export function treemapOption(items, valueFormatter = formatCurrency) {
         color: CHART_PALETTE,
         tooltip: {
             formatter(p) {
-                return `${p.name}<br>${valueFormatter(p.value)} (${formatPct(p.data?.pct || 0)})`;
+                return `${p.name}<br>${valueFormatter(p.value)} (${formatPct(p.data?.pct || 0)})${DRILL_HINT}`;
             }
         },
         series: [{
             type: 'treemap',
             roam: false,
             nodeClick: false,
-            breadcrumb: { show: false },
             label: { show: true, fontSize: 11, formatter: '{b}' },
             upperLabel: { show: false },
             itemStyle: { borderColor: '#fff', borderWidth: 2, gapWidth: 2 },
@@ -139,7 +140,7 @@ export function scatterBubbleOption(points) {
                 return `<strong>${d.name}</strong><br>
                     Produtividade: ${formatNumber(d.x, 1)} sc/ha<br>
                     Margem: ${formatPct(d.y)}<br>
-                    Receita: ${formatCurrency(d.receita)}`;
+                    Receita: ${formatCurrency(d.receita)}${DRILL_HINT}`;
             }
         },
         grid: { ...baseGrid, left: 52, bottom: 52 },
@@ -178,7 +179,7 @@ export function horizontalBarOption(labels, values, opts = {}) {
         color: [color],
         tooltip: {
             trigger: 'axis',
-            formatter: p => `${p[0].name}: ${formatter ? formatter(p[0].value) : p[0].value}`
+            formatter: p => `${p[0].name}: ${formatter ? formatter(p[0].value) : p[0].value}${DRILL_HINT}`
         },
         grid: { left: 8, right: 20, top: 8, bottom: 8, containLabel: true },
         xAxis: { type: 'value', axisLabel: { fontSize: 10, formatter: opts.xFormatter } },
@@ -205,7 +206,7 @@ export function paretoOption(labels, values, valueFormatter = formatCurrency) {
                 let html = `${bar?.name || ''}<br>`;
                 if (bar) html += `Custo: ${valueFormatter(bar.value)}<br>`;
                 if (line) html += `Acumulado: ${line.value}%`;
-                return html;
+                return html + DRILL_HINT;
             }
         },
         legend: { data: ['Custo', 'Acumulado'], bottom: 0, textStyle: { fontSize: 10 } },
@@ -241,7 +242,7 @@ export function stackedBarOption(categories, series) {
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
             formatter(params) {
-                return params.map(p => `${p.marker} ${p.seriesName}: ${formatCurrency(p.value)}`).join('<br>');
+                return params.map(p => `${p.marker} ${p.seriesName}: ${formatCurrency(p.value)}`).join('<br>') + DRILL_HINT;
             }
         },
         legend: { bottom: 0, textStyle: { fontSize: 10 } },
@@ -275,7 +276,7 @@ export function heatmapOption(xLabels, yLabels, matrix) {
         tooltip: {
             position: 'top',
             formatter(p) {
-                return `${yLabels[p.data[1]]} · ${xLabels[p.data[0]]}<br>Custo: ${formatCurrency(p.data[2])}`;
+                return `${yLabels[p.data[1]]} · ${xLabels[p.data[0]]}<br>Custo: ${formatCurrency(p.data[2])}${DRILL_HINT}`;
             }
         },
         grid: { left: 72, right: 16, top: 16, bottom: 48 },
@@ -316,7 +317,7 @@ export function lineAreaOption(labels, values, opts = {}) {
         color: [CHART_COLORS.primary],
         tooltip: {
             trigger: 'axis',
-            formatter: p => `${p[0].axisValue}<br>Saldo: ${formatCurrency(p[0].value)}`
+            formatter: p => `${p[0].axisValue}<br>Saldo: ${formatCurrency(p[0].value)}${DRILL_HINT}`
         },
         grid: { ...baseGrid, bottom: 48 },
         xAxis: {
@@ -338,7 +339,10 @@ export function lineAreaOption(labels, values, opts = {}) {
 export function comboBarLineOption(categories, barSeries, lineSeries) {
     return {
         color: CHART_PALETTE,
-        tooltip: { trigger: 'axis' },
+        tooltip: {
+            trigger: 'axis',
+            formatter: params => params.map(p => `${p.marker} ${p.seriesName}: ${p.value}`).join('<br>') + DRILL_HINT
+        },
         legend: { bottom: 0, textStyle: { fontSize: 10 } },
         grid: { ...baseGrid, bottom: 52 },
         xAxis: { type: 'category', data: categories, axisLabel: { fontSize: 10 } },

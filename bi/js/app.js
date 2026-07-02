@@ -5,20 +5,15 @@ import {
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=4.8';
+} from './api.js?v=4.9';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
-    buildCultureInsights,
-    buildStockInsights,
     buildStockPanelInsights,
-    buildTalhaoInsight,
-    buildFinancialInsight,
     renderInsightCards
-} from './insights.js?v=4.8';
+} from './insights.js?v=4.9';
 import {
     buildDecisionQuestions,
-    buildDecisionDrilldown,
     buildCommercialSummary,
     buildCommercialInsights,
     buildCashInsights,
@@ -28,8 +23,9 @@ import {
     renderCommercialTable,
     renderCashMatrix,
     renderCashMobilePanel
-} from './decisionQuestions.js?v=4.8';
-import { initDrilldown, openDrilldown, closeDrilldown } from './drilldown.js?v=4.8';
+} from './decisionQuestions.js?v=4.9';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=4.9';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=4.9';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -41,7 +37,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=4.8';
+} from './charts.js?v=4.9';
 import {
     initFilters,
     loadFilterState,
@@ -53,7 +49,7 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=4.8';
+} from './filters.js?v=4.9';
 
 const charts = {};
 const chartsReady = new Set();
@@ -123,6 +119,16 @@ function setChart(id, option) {
     return chart;
 }
 
+function bindChartDrill(chartId, handler, coverage) {
+    const chart = charts[chartId];
+    if (!chart) return;
+    chart.off('click');
+    chart.on('click', handler);
+    if (coverage) {
+        registerDrillCoverage(coverage.section, coverage.element, coverage.type, 'ok');
+    }
+}
+
 function resizeVisibleCharts() {
     const activePanel = document.querySelector('.view-panel.active');
     if (!activePanel) return;
@@ -185,177 +191,103 @@ function statusFromMargin(margemPct) {
     return { status: 'negative', label: 'Crítico', tone: 'critical' };
 }
 
-function kpiPremium(label, value, hint, tone = '', className = '', fullValue = '') {
+function kpiPremium(label, value, hint, tone = '', className = '', fullValue = '', drillKpi = '', drillExtra = {}) {
     const title = fullValue ? ` title="${fullValue.replace(/"/g, '&quot;')}"` : '';
+    const toneClass = `kpi-card--${tone || 'default'}`;
+    const clickableClass = drillKpi ? ' kpi-card--clickable' : '';
+    const drillAttrs = drillKpi
+        ? ` data-drill-kpi="${drillKpi}" role="button" tabindex="0" aria-label="Detalhar ${label.replace(/"/g, '&quot;')}"`
+        : '';
+    const extraAttrs = drillKpi && Object.keys(drillExtra).length
+        ? ` data-drill-extra='${JSON.stringify(drillExtra).replace(/'/g, '&#39;')}'`
+        : '';
     return `
-        <div class="kpi-card kpi-card--${tone || 'default'}">
+        <div class="kpi-card ${toneClass}${clickableClass}"${drillAttrs}${extraAttrs}>
             <div class="kpi-label">${label}</div>
             <div class="kpi-value ${className}"${title}>${value}</div>
             ${hint ? `<div class="kpi-hint">${hint}</div>` : ''}
+            ${drillKpi ? '<span class="kpi-drill-hint" aria-hidden="true">Ver detalhe ↗</span>' : ''}
         </div>
     `;
 }
 
-function renderKpis(containerId, items) {
+function renderKpis(containerId, items, coverageSection = '') {
     const container = el(containerId);
     if (!container) return;
-    container.innerHTML = items.map(item =>
-        kpiPremium(item.label, item.value, item.hint || '', item.tone || '', item.className || '', item.full || '')
-    ).join('');
+    container.innerHTML = items.map(item => {
+        if (item.drillKpi) {
+            return kpiPremium(
+                item.label, item.value, item.hint || '', item.tone || '', item.className || '',
+                item.full || '', item.drillKpi, item.drillExtra || {}
+            );
+        }
+        return kpiPremium(item.label, item.value, item.hint || '', item.tone || '', item.className || '', item.full || '');
+    }).join('');
+
+    container.querySelectorAll('[data-drill-kpi]').forEach(node => {
+        const open = () => {
+            let extra = {};
+            try {
+                extra = JSON.parse(node.dataset.drillExtra || '{}');
+            } catch (_) { /* ignore */ }
+            openDrill('kpi', { kpiId: node.dataset.drillKpi, ...extra });
+        };
+        node.addEventListener('click', open);
+        node.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                open();
+            }
+        });
+        if (coverageSection) {
+            registerDrillCoverage(coverageSection, node.dataset.drillKpi, 'kpi', 'ok');
+        }
+    });
 }
 
-function moneyKpi(label, n, hint = '', tone = '', className = '') {
+function moneyKpi(label, n, hint = '', tone = '', className = '', drillKpi = '', drillExtra = {}) {
     return {
         label,
         value: formatCurrencyCompact(n),
         full: formatCurrency(n),
         hint,
         tone,
-        className
+        className,
+        drillKpi,
+        drillExtra
     };
 }
 
-/* ─── Drill-down builders ─── */
-
-function openDrilldownWithContext(opts) {
-    const ctx = getFilterContextLabel(filterState);
-    openDrilldown({ ...opts, filterContext: ctx });
-}
+/* ─── Drill-down (registry central) ─── */
 
 function openCultureDrilldown(nome) {
-    const data = getData();
-    const byCulture = aggregateDreByCulture(data.dre || []);
-    const row = byCulture.find(c => c.cultura_nome === nome) || {};
-    const margem = (data.margem || []).find(m => m.cultura_nome === nome) || {};
-    const resultado = (data.resultado || []).find(r => r.cultura_nome === nome) || {};
-    const prodMap = avgProdutividadeByCulture(data.produtividade || []);
-    const receitaTotal = sumField(byCulture, 'receita_bruta');
-    const estoque = (data.producao || [])
-        .filter(p => p.cultura_nome === nome)
-        .reduce((s, p) => s + Number(p.quantidade_atual_sc || 0), 0);
-    const talhoes = (data.talhoes || [])
-        .filter(t => t.cultura_nome === nome)
-        .sort((a, b) => Number(b.custo_total) - Number(a.custo_total))
-        .slice(0, 3);
-    const margemPct = row.receita_bruta ? (Number(row.resultado) / Number(row.receita_bruta)) * 100 : 0;
-    const st = statusFromMargin(margemPct);
-    const insight = buildCultureInsights(data, nome)[0];
-
-    openDrilldownWithContext({
-        title: `Análise da cultura — ${nome}`,
-        subtitle: `${formatPct(pctShare(row.receita_bruta, receitaTotal))} da receita total`,
-        status: st.status,
-        statusLabel: st.label,
-        metrics: [
-            { label: 'Receita', value: formatCurrency(row.receita_bruta), title: formatCurrency(row.receita_bruta) },
-            { label: 'Custo total', value: formatCurrencyCompact(Number(row.custos_variaveis) + Number(row.custos_fixos)) },
-            { label: 'Resultado', value: formatCurrency(row.resultado), highlight: true },
-            { label: 'Margem %', value: formatPct(margemPct) },
-            { label: 'Produtividade média', value: prodMap.has(nome) ? formatNumber(prodMap.get(nome), 1) + ' sc/ha' : '—' },
-            { label: 'Estoque (sc)', value: formatNumber(estoque, 0) },
-            { label: 'Talhões principais', value: talhoes.map(t => t.talhao_codigo).join(', ') || '—' },
-            { label: 'Custos variáveis', value: formatCurrencyCompact(row.custos_variaveis || resultado.custos_variaveis) },
-            { label: 'Despesas / fixos', value: formatCurrencyCompact(row.custos_fixos || resultado.custos_fixos) }
-        ],
-        insight
-    });
+    openDrill('culture', { cultura: nome });
 }
 
 function openTalhaoDrilldown(talhaoCodigo) {
-    const data = getData();
-    const t = (data.talhoes || []).find(x => x.talhao_codigo === talhaoCodigo);
-    if (!t) return;
-    const prod = (data.produtividade || []).find(p => p.talhao_codigo === talhaoCodigo && p.cultura_nome === t.cultura_nome);
-    const area = prod ? Number(prod.area_planejada_ha || 0) : 0;
-    const custoHa = area ? Number(t.custo_total) / area : null;
-    const st = Number(t.resultado_estimado) >= 0 ? statusFromMargin(10) : statusFromMargin(-5);
-    const insight = buildTalhaoInsight(t)[0];
-
-    openDrilldownWithContext({
-        title: `Talhão ${t.talhao_codigo}`,
-        subtitle: `${t.cultura_nome} · ${t.talhao_nome || ''}`.trim(),
-        status: st.status,
-        statusLabel: st.label,
-        metrics: [
-            { label: 'Cultura', value: t.cultura_nome },
-            { label: 'Produção', value: formatNumber(t.producao_sc, 0) + ' sc' },
-            { label: 'Custo total', value: formatCurrency(t.custo_total) },
-            { label: 'Resultado estimado', value: formatCurrency(t.resultado_estimado), highlight: true },
-            { label: 'Custo / hectare', value: custoHa != null ? formatCurrency(custoHa) + '/ha' : '—' },
-            { label: 'Produtividade', value: prod ? formatNumber(prod.produtividade_sc_ha, 1) + ' sc/ha' : '—' },
-            { label: 'Preço médio (sc)', value: formatCurrency(t.preco_medio_sc) }
-        ],
-        insight
-    });
+    openDrill('talhao', { talhaoCodigo });
 }
 
 function openStockDrilldown(insumoNome) {
-    const data = getData();
-    const item = (data.insumos || []).find(i => i.insumo_nome === insumoNome);
-    if (!item) return;
-    const total = sumField(data.insumos || [], 'valor_estoque');
-    const insight = buildStockInsights(data, item)[0];
-
-    openDrilldownWithContext({
-        title: item.insumo_nome,
-        subtitle: item.categoria || 'Insumo',
-        metrics: [
-            { label: 'Categoria', value: item.categoria || '—' },
-            { label: 'Quantidade', value: formatNumber(item.quantidade_atual, 1) + ' ' + (item.unidade || '') },
-            { label: 'Valor estimado', value: formatCurrency(item.valor_estoque), highlight: true },
-            { label: 'Participação', value: formatPct(pctShare(item.valor_estoque, total)) },
-            { label: 'Armazém', value: item.armazem_nome || item.armazem_codigo || '—' },
-            { label: 'Custo unitário', value: formatCurrency(item.custo_unitario) }
-        ],
-        insight
-    });
+    openDrill('stockItem', { insumo: insumoNome });
 }
 
 function openFinancialDrilldown(culturaNome) {
-    const data = getData();
-    const byCulture = aggregateDreByCulture(data.dre || []);
-    const row = byCulture.find(c => c.cultura_nome === culturaNome);
-    if (!row) return;
-    const margemPct = row.receita_bruta ? (Number(row.resultado) / Number(row.receita_bruta)) * 100 : 0;
-    const st = statusFromMargin(margemPct);
-    const insight = buildFinancialInsight(row)[0];
-
-    openDrilldownWithContext({
-        title: `DRE — ${culturaNome}`,
-        subtitle: 'Composição gerencial da cultura',
-        status: st.status,
-        statusLabel: st.label,
-        metrics: [
-            { label: 'Receita bruta', value: formatCurrency(row.receita_bruta) },
-            { label: 'Custos variáveis', value: formatCurrency(row.custos_variaveis) },
-            { label: 'Custos fixos / despesas', value: formatCurrency(row.custos_fixos) },
-            { label: 'Resultado', value: formatCurrency(row.resultado), highlight: true },
-            { label: 'Margem líquida', value: formatPct(margemPct) }
-        ],
-        insight
-    });
+    openDrill('financial', { cultura: culturaNome });
 }
 
 function openMachineDrilldown(equipamentoNome) {
-    const data = getData();
-    const m = (data.maquinas || []).find(x => x.equipamento_nome === equipamentoNome);
-    if (!m) return;
+    openDrill('machine', { equipamento: equipamentoNome });
+}
 
-    openDrilldownWithContext({
-        title: m.equipamento_nome,
-        subtitle: m.categoria || 'Equipamento',
-        metrics: [
-            { label: 'Horas trabalhadas', value: formatNumber(m.horas_totais, 1) + ' h' },
-            { label: 'Custo estimado', value: formatCurrency(m.custo_total), highlight: true },
-            { label: 'Apontamentos', value: formatNumber(m.apontamentos, 0) },
-            { label: 'Custo / hora', value: m.horas_totais ? formatCurrency(Number(m.custo_total) / Number(m.horas_totais)) : '—' }
-        ],
-        insight: {
-            title: 'Uso operacional',
-            text: `${m.equipamento_nome} registrou ${formatNumber(m.horas_totais, 1)} horas na safra demonstrativa.`,
-            tone: 'info'
-        }
-    });
+function registerStaticDrillCoverage() {
+    registerDrillCoverage('culturas', 'culture-cards', 'culture', 'ok');
+    registerDrillCoverage('estoques', 'ranking-insumos', 'stockItem', 'ok');
+    registerDrillCoverage('financeiro', 'cards-dre', 'financial', 'ok');
+    registerDrillCoverage('comercializacao', 'comercial-table', 'commercialCulture', 'ok');
+    registerDrillCoverage('caixa', 'cash-matrix', 'cashMonth', 'ok');
+    registerDrillCoverage('perguntas', 'decision-cards', 'question', 'ok');
+    registerDrillCoverage('perguntas', 'selected-question-panel', 'question', 'ok');
 }
 
 function bindDrilldownClicks() {
@@ -365,62 +297,66 @@ function bindDrilldownClicks() {
         const nome = row?.dataset.culture || btn?.dataset.analyze;
         if (nome) openCultureDrilldown(nome);
     });
+    document.getElementById('culture-cards')?.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const row = e.target.closest('[data-culture]');
+        if (!row) return;
+        e.preventDefault();
+        openCultureDrilldown(row.dataset.culture);
+    });
 
     document.getElementById('ranking-insumos')?.addEventListener('click', e => {
         const row = e.target.closest('[data-insumo]');
         if (row) openStockDrilldown(row.dataset.insumo);
+    });
+    document.getElementById('ranking-insumos')?.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const row = e.target.closest('[data-insumo]');
+        if (!row) return;
+        e.preventDefault();
+        openStockDrilldown(row.dataset.insumo);
     });
 
     document.getElementById('cards-dre')?.addEventListener('click', e => {
         const row = e.target.closest('[data-dre-culture]');
         if (row) openFinancialDrilldown(row.dataset.dreCulture);
     });
+    document.getElementById('cards-dre')?.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const row = e.target.closest('[data-dre-culture]');
+        if (!row) return;
+        e.preventDefault();
+        openFinancialDrilldown(row.dataset.dreCulture);
+    });
 }
 
-function bindTalhaoChartClick(chartId, talhaoCodes) {
-    const chart = charts[chartId];
-    if (!chart) return;
-    chart.off('click');
-    chart.on('click', params => {
+function bindTalhaoChartClick(chartId, talhaoCodes, coverageElement) {
+    bindChartDrill(chartId, params => {
+        if (params.seriesName === 'Acumulado') {
+            openDrill('costConcentration', { talhaoCodes, dataIndex: params.dataIndex });
+            return;
+        }
         const code = params.name || talhaoCodes[params.dataIndex];
         if (code) openTalhaoDrilldown(code);
+    }, {
+        section: 'operacoes',
+        element: coverageElement || chartId.replace('chart-', ''),
+        type: 'talhao'
     });
 }
 
 function openDecisionById(id) {
     const card = decisionCards.find(c => c.id === id);
     if (!card) return;
-    const data = getData();
-    const drill = buildDecisionDrilldown(card, data);
-    if (drill) openDrilldownWithContext(drill);
+    openDrill('question', { card });
 }
 
 function openCommercialCultureDrilldown(cultura) {
-    const card = {
-        id: `commercial-${cultura}`,
-        question: `Como está a comercialização de ${cultura}?`,
-        answer: 'Análise agregada por cultura na safra demonstrativa.',
-        tone: 'info',
-        drillType: 'commercialCulture',
-        payload: { cultura }
-    };
-    const data = getData();
-    const drill = buildDecisionDrilldown(card, data);
-    if (drill) openDrilldownWithContext(drill);
+    openDrill('commercialCulture', { cultura });
 }
 
 function openCashMonthDrilldown(month) {
-    const card = {
-        id: `cash-${month.monthKey}`,
-        question: 'Em quais meses há maior pressão de caixa?',
-        answer: `${month.monthLabel} concentra movimentação relevante de caixa na safra demonstrativa.`,
-        tone: month.pressao > 0 ? 'warn' : 'info',
-        drillType: 'cashMonth',
-        payload: { monthKey: month.monthKey, monthLabel: month.monthLabel }
-    };
-    const data = getData();
-    const drill = buildDecisionDrilldown(card, data);
-    if (drill) openDrilldownWithContext(drill);
+    openDrill('cashMonth', { monthKey: month.monthKey, monthLabel: month.monthLabel });
 }
 
 function selectDecision(id) {
@@ -480,12 +416,12 @@ function renderComercializacao(drawChart = false) {
         : 0;
 
     renderKpis('kpi-comercial', [
-        { label: 'Volume contratado', value: formatNumber(com.totalContratado, 0) + ' sc', hint: '' },
-        { label: 'Volume entregue', value: formatNumber(com.totalEntregue, 0) + ' sc', hint: '', tone: 'positive' },
-        { label: 'Saldo a entregar', value: formatNumber(com.totalPendente, 0) + ' sc', hint: '', tone: com.totalPendente > 0 ? 'warn' : 'positive' },
-        { label: '% entregue', value: formatPct(pctEntregue), hint: '' },
-        moneyKpi('Valor contratado', com.totalValor, 'Soma por cultura na safra demonstrativa')
-    ]);
+        { label: 'Volume contratado', value: formatNumber(com.totalContratado, 0) + ' sc', hint: '', drillKpi: 'contratado' },
+        { label: 'Volume entregue', value: formatNumber(com.totalEntregue, 0) + ' sc', hint: '', tone: 'positive', drillKpi: 'entregue' },
+        { label: 'Saldo a entregar', value: formatNumber(com.totalPendente, 0) + ' sc', hint: '', tone: com.totalPendente > 0 ? 'warn' : 'positive', drillKpi: 'saldo-entregar' },
+        { label: '% entregue', value: formatPct(pctEntregue), hint: '', drillKpi: 'pct-entregue' },
+        moneyKpi('Valor contratado', com.totalValor, 'Soma por cultura na safra demonstrativa', '', '', 'valor-contratado')
+    ], 'comercializacao');
 
     renderInsightCards(el('insights-comercial'), buildCommercialInsights(com));
     renderCommercialTable(el('comercial-table'), data.comercial, openCommercialCultureDrilldown);
@@ -500,10 +436,9 @@ function renderComercializacao(drawChart = false) {
         { name: 'Entregue', data: cats.map(n => rows.find(r => r.cultura_nome === n)?.volume_entregue_sc || 0) },
         { name: 'Saldo a entregar', data: cats.map(n => rows.find(r => r.cultura_nome === n)?.volume_pendente_sc || 0) }
     ]));
-    charts['chart-comercial-stack']?.off('click');
-    charts['chart-comercial-stack']?.on('click', params => {
+    bindChartDrill('chart-comercial-stack', params => {
         if (params.name) openCommercialCultureDrilldown(params.name);
-    });
+    }, { section: 'comercializacao', element: 'chart-stack', type: 'commercialCulture' });
 
     const pending = [...rows]
         .filter(r => r.volume_pendente_sc > 0)
@@ -516,10 +451,9 @@ function renderComercializacao(drawChart = false) {
             pending.map(r => r.volume_pendente_sc),
             { color: CHART_COLORS.gold, formatter: v => formatNumber(v, 0) + ' sc' }
         ));
-        charts['chart-comercial-ranking']?.off('click');
-        charts['chart-comercial-ranking']?.on('click', params => {
+        bindChartDrill('chart-comercial-ranking', params => {
             if (params.name) openCommercialCultureDrilldown(params.name);
-        });
+        }, { section: 'comercializacao', element: 'chart-ranking', type: 'commercialCulture' });
     }
 }
 
@@ -557,12 +491,12 @@ function renderCaixa(drawChart = false) {
         : null;
 
     renderKpis('kpi-caixa', [
-        moneyKpi('Total de entradas', totalEntradas, 'Fluxo realizado agregado', 'positive'),
-        moneyKpi('Total de saídas', totalSaidas, 'Desembolsos do período', 'warn'),
-        moneyKpi('Saldo final', saldoFinal, 'Saldo acumulado no fim do período', saldoFinal >= 0 ? 'positive' : 'critical'),
-        { label: 'Mês de maior pressão', value: maxPressao?.monthLabel || '—', hint: maxPressao ? formatCurrencyCompact(maxPressao.pressao) + ' de pressão' : '', tone: 'warn' },
-        { label: 'Maior entrada mensal', value: maxEntrada?.monthLabel || '—', hint: maxEntrada ? formatCurrencyCompact(maxEntrada.entradas) : '', tone: 'positive' }
-    ]);
+        moneyKpi('Total de entradas', totalEntradas, 'Fluxo realizado agregado', 'positive', '', 'total-entradas'),
+        moneyKpi('Total de saídas', totalSaidas, 'Desembolsos do período', 'warn', '', 'total-saidas'),
+        moneyKpi('Saldo final', saldoFinal, 'Saldo acumulado no fim do período', saldoFinal >= 0 ? 'positive' : 'critical', '', 'saldo-final'),
+        { label: 'Mês de maior pressão', value: maxPressao?.monthLabel || '—', hint: maxPressao ? formatCurrencyCompact(maxPressao.pressao) + ' de pressão' : '', tone: 'warn', drillKpi: 'pressao-caixa' },
+        { label: 'Maior entrada mensal', value: maxEntrada?.monthLabel || '—', hint: maxEntrada ? formatCurrencyCompact(maxEntrada.entradas) : '', tone: 'positive', drillKpi: 'maior-entrada' }
+    ], 'caixa');
 
     renderInsightCards(el('insights-caixa'), buildCashInsights(months));
     renderCashMatrix(el('cash-matrix'), data.fluxo, openCashMonthDrilldown);
@@ -575,6 +509,10 @@ function renderCaixa(drawChart = false) {
         months.map(m => m.saldoAcumulado),
         { rotate: months.length > 6 ? 28 : 0, interval: Math.max(0, Math.floor(months.length / 6)) }
     ));
+    bindChartDrill('chart-caixa-saldo', params => {
+        const m = months[params.dataIndex];
+        if (m) openCashMonthDrilldown(m);
+    }, { section: 'caixa', element: 'chart-saldo', type: 'cashMonth' });
 }
 
 /* ─── Visão Geral ─── */
@@ -593,13 +531,13 @@ function renderOverview(dre, margem, custoHa, comercial, producao, insumos, draw
     const resultadoSt = statusFromMargin(margemPct);
 
     renderKpis('kpi-overview', [
-        moneyKpi('Receita total', receitaTotal, 'Faturamento bruto consolidado', 'positive'),
-        moneyKpi('Custo total', custoTotal, 'Variáveis + fixos da safra', 'warn'),
-        moneyKpi('Resultado', resultado, resultado >= 0 ? 'Margem saudável na operação simulada' : 'Resultado negativo — atenção', resultadoSt.tone, resultado >= 0 ? 'kpi-value--positive' : 'kpi-value--negative'),
-        { label: 'Margem líquida', value: formatPct(margemPct), hint: resultadoSt.label, tone: resultadoSt.tone },
+        moneyKpi('Receita total', receitaTotal, 'Faturamento bruto consolidado', 'positive', '', 'receita-total'),
+        moneyKpi('Custo total', custoTotal, 'Variáveis + fixos da safra', 'warn', '', 'custo-total'),
+        moneyKpi('Resultado', resultado, resultado >= 0 ? 'Margem saudável na operação simulada' : 'Resultado negativo — atenção', resultadoSt.tone, resultado >= 0 ? 'kpi-value--positive' : 'kpi-value--negative', 'resultado'),
+        { label: 'Margem líquida', value: formatPct(margemPct), hint: resultadoSt.label, tone: resultadoSt.tone, drillKpi: 'margem' },
         { label: 'Área total', value: formatNumber(areaTotal, 0) + ' ha', hint: `${formatNumber(comercial.length || byCulture.length)} culturas` },
-        moneyKpi('Estoque insumos', estoqueValor, formatNumber(estoqueSc, 0) + ' sc de produção armazenada')
-    ]);
+        moneyKpi('Estoque insumos', estoqueValor, formatNumber(estoqueSc, 0) + ' sc de produção armazenada', '', '', 'estoque-insumos')
+    ], 'visao-geral');
 
     renderInsightCards(el('insights-overview'), buildExecutiveInsights(getData()));
 
@@ -611,6 +549,10 @@ function renderOverview(dre, margem, custoHa, comercial, producao, insumos, draw
         { label: 'Custos fixos', value: -custoFix, type: 'subtract' },
         { label: 'Resultado', value: resultado, type: 'total' }
     ]));
+    bindChartDrill('chart-waterfall-exec', params => {
+        const label = params.name || params.seriesName;
+        if (label) openDrill('waterfallStep', { label });
+    }, { section: 'visao-geral', element: 'waterfall-exec', type: 'waterfallStep' });
 
     const treemapSource = sortCultures(byCulture.map(c => c.cultura_nome)).map(name => {
         const c = byCulture.find(r => r.cultura_nome === name);
@@ -620,6 +562,9 @@ function renderOverview(dre, margem, custoHa, comercial, producao, insumos, draw
 
     if (treemapSource.length) {
         setChart('chart-treemap-cultura', treemapOption(treemapSource));
+        bindChartDrill('chart-treemap-cultura', params => {
+            if (params.name) openCultureDrilldown(params.name);
+        }, { section: 'visao-geral', element: 'treemap-cultura', type: 'culture' });
     }
 }
 
@@ -649,7 +594,7 @@ function renderCulturas(resultado, margem, produtividade, dre, drawChart = false
             const st = statusFromMargin(margemPct);
             const share = formatPct(pctShare(receita, receitaTotal));
             return `
-                <tr data-culture="${nome}">
+                <tr data-culture="${nome}" class="drill-row-clickable" role="button" tabindex="0" aria-label="Detalhar cultura ${nome}">
                     <td class="cell-name">${nome}</td>
                     <td title="${formatCurrency(receita)}">${formatCurrencyCompact(receita)}</td>
                     <td title="${formatCurrency(custo)}">${formatCurrencyCompact(custo)}</td>
@@ -697,6 +642,10 @@ function renderCulturas(resultado, margem, produtividade, dre, drawChart = false
 
     if (points.length) {
         setChart('chart-scatter-cultura', scatterBubbleOption(points));
+        bindChartDrill('chart-scatter-cultura', params => {
+            const nome = params.data?.name || params.name;
+            if (nome) openCultureDrilldown(nome);
+        }, { section: 'culturas', element: 'scatter', type: 'culture' });
     }
 
     const sorted = [...culturas].sort((a, b) => {
@@ -715,6 +664,9 @@ function renderCulturas(resultado, margem, produtividade, dre, drawChart = false
         }),
         { color: CHART_COLORS.primary, formatter: v => formatPct(v), xFormatter: v => v + '%' }
     ));
+    bindChartDrill('chart-margem-cultura', params => {
+        if (params.name) openCultureDrilldown(params.name);
+    }, { section: 'culturas', element: 'ranking-margem', type: 'culture' });
 }
 
 /* ─── Estoques ─── */
@@ -725,11 +677,18 @@ function renderEstoques(insumos, producao, drawChart = false) {
     const topInsumo = [...insumos].sort((a, b) => Number(b.valor_estoque) - Number(a.valor_estoque))[0];
 
     renderKpis('kpi-estoques', [
-        { label: 'Produção armazenada', value: formatNumber(volumeProd, 0) + ' sc', hint: 'Grãos e café em estoque' },
-        moneyKpi('Valor produção est.', volumeProd * 85, 'Estimativa ilustrativa', 'positive'),
-        moneyKpi('Valor insumos', valorInsumos, `${insumos.length} itens monitorados`),
-        { label: 'Item crítico', value: topInsumo?.insumo_nome?.slice(0, 18) || '—', hint: topInsumo ? formatCurrencyCompact(topInsumo.valor_estoque) : '', tone: 'warn' }
-    ]);
+        { label: 'Produção armazenada', value: formatNumber(volumeProd, 0) + ' sc', hint: 'Grãos e café em estoque', drillKpi: 'producao-armazenada' },
+        moneyKpi('Valor produção est.', volumeProd * 85, 'Estimativa ilustrativa', 'positive', '', 'valor-producao'),
+        moneyKpi('Valor insumos', valorInsumos, `${insumos.length} itens monitorados`, '', '', 'valor-insumos'),
+        {
+            label: 'Item crítico',
+            value: topInsumo?.insumo_nome?.slice(0, 18) || '—',
+            hint: topInsumo ? formatCurrencyCompact(topInsumo.valor_estoque) : '',
+            tone: 'warn',
+            drillKpi: topInsumo ? 'item-critico' : '',
+            drillExtra: topInsumo ? { insumo: topInsumo.insumo_nome } : {}
+        }
+    ], 'estoques');
 
     renderInsightCards(el('insights-estoques'), buildStockPanelInsights(getData()));
 
@@ -746,11 +705,11 @@ function renderEstoques(insumos, producao, drawChart = false) {
             .sort((a, b) => Number(b.valor_estoque) - Number(a.valor_estoque))
             .slice(0, 5);
         rankingEl.innerHTML = top5.map((item, i) => `
-            <div class="ranking-row" data-insumo="${item.insumo_nome}">
+            <div class="ranking-row drill-row-clickable" data-insumo="${item.insumo_nome}" role="button" tabindex="0" aria-label="Detalhar ${item.insumo_nome}">
                 <span class="ranking-pos">${i + 1}</span>
                 <div class="ranking-info">
                     <div class="ranking-name">${item.insumo_nome}</div>
-                    <div class="ranking-meta">${item.categoria} · ${formatNumber(item.quantidade_atual, 1)} ${item.unidade || ''}</div>
+                    <div class="ranking-meta">${item.categoria} · ${formatNumber(item.quantidade_atual, 1)} ${item.unidade || ''} · <span class="row-drill-hint">Ver detalhe</span></div>
                 </div>
                 <span class="ranking-value">${formatCurrencyCompact(item.valor_estoque)}</span>
             </div>
@@ -765,6 +724,9 @@ function renderEstoques(insumos, producao, drawChart = false) {
             cultNames.map(c => byCulture.get(c)),
             { color: CHART_COLORS.light, formatter: v => formatNumber(v, 0) + ' sc' }
         ));
+        bindChartDrill('chart-estoque-prod', params => {
+            if (params.name) openDrill('stockProduction', { cultura: params.name });
+        }, { section: 'estoques', element: 'chart-estoque-prod', type: 'stockProduction' });
     }
 
     const treemapIns = [...insumos]
@@ -778,6 +740,9 @@ function renderEstoques(insumos, producao, drawChart = false) {
 
     if (treemapIns.length) {
         setChart('chart-treemap-insumos', treemapOption(treemapIns));
+        bindChartDrill('chart-treemap-insumos', params => {
+            if (params.name) openStockDrilldown(params.name);
+        }, { section: 'estoques', element: 'treemap-insumos', type: 'stockItem' });
     }
 }
 
@@ -822,11 +787,11 @@ function renderFinanceiro(dre, _fluxo, drawChart = false) {
     const resultadoClass = resultado >= 0 ? 'kpi-value--positive' : 'kpi-value--negative';
 
     renderKpis('kpi-financeiro', [
-        moneyKpi('Receita', receita, 'Entradas consolidadas', 'positive'),
-        moneyKpi('Custos variáveis', custosVar),
-        moneyKpi('Despesas / fixos', despesas),
-        moneyKpi('Resultado', resultado, `Margem ${formatPct(margemPct)}`, resultado >= 0 ? 'positive' : 'critical', resultadoClass)
-    ]);
+        moneyKpi('Receita', receita, 'Entradas consolidadas', 'positive', '', 'receita-total'),
+        moneyKpi('Custos variáveis', custosVar, '', '', '', 'custo-variaveis'),
+        moneyKpi('Despesas / fixos', despesas, '', '', '', 'despesas'),
+        moneyKpi('Resultado', resultado, `Margem ${formatPct(margemPct)}`, resultado >= 0 ? 'positive' : 'critical', resultadoClass, 'resultado')
+    ], 'financeiro');
 
     renderInsightCards(el('insights-financeiro'), buildFinanceiroPanelInsights(dre));
 
@@ -837,7 +802,7 @@ function renderFinanceiro(dre, _fluxo, drawChart = false) {
             const mp = d.receita_bruta ? (d.resultado / d.receita_bruta) * 100 : 0;
             const st = statusFromMargin(mp);
             return `
-                <tr data-dre-culture="${name}">
+                <tr data-dre-culture="${name}" class="drill-row-clickable" role="button" tabindex="0" aria-label="Detalhar DRE ${name}">
                     <td class="cell-name">${name}</td>
                     <td>${formatCurrencyCompact(d.receita_bruta)}</td>
                     <td>${formatCurrencyCompact(d.custos_variaveis)}</td>
@@ -873,12 +838,19 @@ function renderFinanceiro(dre, _fluxo, drawChart = false) {
         { label: 'Despesas', value: -despesas, type: 'subtract' },
         { label: 'Resultado', value: resultado, type: 'total' }
     ]));
+    bindChartDrill('chart-waterfall-dre', params => {
+        const label = params.name || params.seriesName;
+        if (label) openDrill('waterfallStep', { label });
+    }, { section: 'financeiro', element: 'waterfall-dre', type: 'waterfallStep' });
 
     const cats = sortCultures(byCulture.map(c => c.cultura_nome));
     setChart('chart-custos-stack', stackedBarOption(cats, [
         { name: 'Variáveis', data: cats.map(n => byCulture.find(c => c.cultura_nome === n)?.custos_variaveis || 0) },
         { name: 'Fixos', data: cats.map(n => byCulture.find(c => c.cultura_nome === n)?.custos_fixos || 0) }
     ]));
+    bindChartDrill('chart-custos-stack', params => {
+        if (params.name) openFinancialDrilldown(params.name);
+    }, { section: 'financeiro', element: 'custos-stack', type: 'culture' });
 }
 
 /* ─── Operações ─── */
@@ -892,7 +864,7 @@ function renderOperacoes(talhoes, maquinas, _maoObra, drawChart = false) {
     const paretoCodes = paretoSlice.map(t => t.talhao_codigo);
     if (paretoSlice.length) {
         setChart('chart-pareto-talhao', paretoOption(paretoCodes, paretoSlice.map(t => Number(t.custo_total))));
-        bindTalhaoChartClick('chart-pareto-talhao', paretoCodes);
+        bindTalhaoChartClick('chart-pareto-talhao', paretoCodes, 'pareto');
     }
 
     const culturas = sortCultures([...new Set(talhoes.map(t => t.cultura_nome))]);
@@ -906,6 +878,13 @@ function renderOperacoes(talhoes, maquinas, _maoObra, drawChart = false) {
 
     if (talhaoCodes.length && culturas.length) {
         setChart('chart-heatmap-talhao', heatmapOption(culturas, talhaoCodes, heatMatrix));
+        bindChartDrill('chart-heatmap-talhao', params => {
+            const d = params.data;
+            if (!d || d.length < 2) return;
+            const cultura = culturas[d[0]];
+            const talhao = talhaoCodes[d[1]];
+            if (cultura && talhao) openDrill('heatmapCell', { cultura, talhao });
+        }, { section: 'operacoes', element: 'heatmap', type: 'heatmapCell' });
     }
 
     const byResult = [...talhoes].sort((a, b) => Number(b.resultado_estimado) - Number(a.resultado_estimado)).slice(0, 8);
@@ -916,7 +895,7 @@ function renderOperacoes(talhoes, maquinas, _maoObra, drawChart = false) {
             byResult.map(t => Number(t.resultado_estimado)),
             { color: CHART_COLORS.light, formatter: v => formatCurrency(v) }
         ));
-        bindTalhaoChartClick('chart-ranking-talhao', resultCodes);
+        bindTalhaoChartClick('chart-ranking-talhao', resultCodes, 'ranking-talhao');
     }
 
     const maqSorted = [...maquinas].sort((a, b) => Number(b.horas_totais) - Number(a.horas_totais)).slice(0, 8);
@@ -926,11 +905,9 @@ function renderOperacoes(talhoes, maquinas, _maoObra, drawChart = false) {
             [{ name: 'Custo (R$)', data: maqSorted.map(m => Number(m.custo_total)) }],
             [{ name: 'Horas', data: maqSorted.map(m => Number(m.horas_totais)) }]
         ));
-
-        charts['chart-maquinas']?.off('click');
-        charts['chart-maquinas']?.on('click', params => {
+        bindChartDrill('chart-maquinas', params => {
             if (params.name) openMachineDrilldown(params.name);
-        });
+        }, { section: 'operacoes', element: 'maquinas', type: 'machine' });
     }
 }
 
@@ -1122,9 +1099,14 @@ async function loadDashboard() {
         rerenderDashboard();
 
         showDashboard();
+        initDrilldownRegistry({
+            getData,
+            getFilterContext: () => getFilterContextLabel(filterState)
+        });
         initDrilldown(() => {
             requestAnimationFrame(resizeVisibleCharts);
         });
+        registerStaticDrillCoverage();
         bindDrilldownClicks();
         bindDecisionClicks();
         setupChartResizeObserver();
