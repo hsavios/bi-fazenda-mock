@@ -40,29 +40,29 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.6';
+} from './api.js?v=5.5';
 import {
     aggregateDreByCulture,
     buildCultureInsights,
     buildStockInsights,
     buildTalhaoInsight
-} from './insights.js?v=5.6';
+} from './insights.js?v=5.5';
 import {
     buildDecisionDrilldown,
     buildCommercialSummary,
     aggregateCashByMonth
-} from './decisionQuestions.js?v=5.6';
+} from './decisionQuestions.js?v=5.5';
 import {
     getCashCellDetails,
     groupCashMovementsByCategory,
     formatMonthLabel,
     CASH_INDICATORS
-} from './cashFlow.js?v=5.6';
+} from './cashFlow.js?v=5.5';
 import {
     buildTalhaoPerformanceModel,
     getTalhaoPerformanceRow
-} from './fieldPerformance.js?v=5.6';
-import { openDrilldown } from './drilldown.js?v=5.6';
+} from './fieldPerformance.js?v=5.5';
+import { openDrilldown } from './drilldown.js?v=5.5';
 
 const COVERAGE = [];
 

@@ -4,21 +4,30 @@
 import {
     formatCurrency,
     formatCurrencyCompact,
-    formatNumber,
-    formatPct
-} from './api.js?v=5.6';
+    formatNumber
+} from './api.js?v=5.5';
 import {
     paretoOption,
     horizontalBarOption,
-    heatmapOption,
-    comboBarLineOption
-} from './charts.js?v=5.6';
-import { CHART_COLORS } from './charts.js?v=5.6';
+    heatmapOption
+} from './charts.js?v=5.5';
+import { CHART_COLORS } from './charts.js?v=5.5';
+
+const GRIDS = {
+    scatter: { left: 56, right: 28, top: 36, bottom: 56, containLabel: true },
+    horizontal: { left: 110, right: 32, top: 24, bottom: 40, containLabel: true },
+    heatmap: { left: 80, right: 32, top: 24, bottom: 54, containLabel: true },
+    pareto: { left: 56, right: 48, top: 36, bottom: 56, containLabel: true },
+    bar: { left: 56, right: 28, top: 24, bottom: 40, containLabel: true }
+};
+
+function withGrid(option, gridKey) {
+    return { ...option, grid: { ...GRIDS[gridKey], ...(option.grid || {}) } };
+}
 
 export function renderOperacoesVisualizacoes({
     model,
     talhoes,
-    maquinas,
     charts,
     setChart,
     onDrill,
@@ -31,7 +40,10 @@ export function renderOperacoesVisualizacoes({
     const paretoSlice = sortedCusto.slice(0, 8);
     const paretoCodes = paretoSlice.map(t => t.talhao_codigo);
     if (paretoSlice.length) {
-        setChart('chart-pareto-talhao', paretoOption(paretoCodes, paretoSlice.map(t => Number(t.custo_total))));
+        setChart('chart-pareto-talhao', withGrid(
+            paretoOption(paretoCodes, paretoSlice.map(t => Number(t.custo_total))),
+            'pareto'
+        ));
         bindTalhaoChart(charts['chart-pareto-talhao'], paretoCodes, onDrill, true);
     }
 
@@ -44,7 +56,9 @@ export function renderOperacoesVisualizacoes({
         })
     );
     if (talhaoCodes.length && culturas.length) {
-        setChart('chart-heatmap-talhao', heatmapOption(culturas, talhaoCodes, heatMatrix));
+        const heatOpt = withGrid(heatmapOption(culturas, talhaoCodes, heatMatrix), 'heatmap');
+        heatOpt.grid = { ...GRIDS.heatmap, bottom: 72 };
+        setChart('chart-heatmap-talhao', heatOpt);
         const heatChart = charts['chart-heatmap-talhao'];
         heatChart?.off('click');
         heatChart?.on('click', params => {
@@ -58,10 +72,13 @@ export function renderOperacoesVisualizacoes({
 
     const byResult = [...rows].sort((a, b) => Number(b.resultado) - Number(a.resultado)).slice(0, 8);
     if (byResult.length) {
-        setChart('chart-ranking-talhao', horizontalBarOption(
-            byResult.map(r => r.talhao_codigo),
-            byResult.map(r => Number(r.resultado)),
-            { color: CHART_COLORS.light, formatter: v => formatCurrency(v) }
+        setChart('chart-ranking-talhao', withGrid(
+            horizontalBarOption(
+                byResult.map(r => r.talhao_codigo),
+                byResult.map(r => Number(r.resultado)),
+                { color: CHART_COLORS.light, formatter: v => formatCurrency(v) }
+            ),
+            'horizontal'
         ));
         bindTalhaoChart(charts['chart-ranking-talhao'], byResult.map(r => r.talhao_codigo), onDrill, false);
     }
@@ -76,13 +93,22 @@ export function renderOperacoesVisualizacoes({
                     return `<strong>${d.name}</strong><br>
                         Produtividade: ${formatNumber(d.value[0], 1)} sc/ha<br>
                         Custo/ha: ${formatCurrency(d.value[1])}<br>
-                        Resultado/ha: ${formatCurrencyCompact(d.resultadoHa)}<br>
-                        <span style="opacity:.7;font-size:10px">Clique para detalhar</span>`;
+                        Resultado/ha: ${formatCurrencyCompact(d.resultadoHa)}`;
                 }
             },
-            grid: { left: 56, right: 16, top: 20, bottom: 48 },
-            xAxis: { name: 'Produtividade sc/ha', nameGap: 28, nameTextStyle: { fontSize: 10 }, axisLabel: { fontSize: 10 } },
-            yAxis: { name: 'Custo/ha', axisLabel: { fontSize: 10, formatter: v => formatCurrencyCompact(v) } },
+            grid: GRIDS.scatter,
+            xAxis: {
+                name: 'Produtividade sc/ha',
+                nameGap: 28,
+                nameTextStyle: { fontSize: 10 },
+                axisLabel: { fontSize: 10 }
+            },
+            yAxis: {
+                name: 'Custo/ha',
+                nameGap: 36,
+                nameTextStyle: { fontSize: 10 },
+                axisLabel: { fontSize: 10, formatter: v => formatCurrencyCompact(v) }
+            },
             series: [{
                 type: 'scatter',
                 symbolSize: d => Math.max(14, Math.min(48, Math.sqrt(Math.abs(d[2])) / 120)),
@@ -107,7 +133,7 @@ export function renderOperacoesVisualizacoes({
     const gpChart = [...gpTop, ...gpBottom.filter(r => !gpTop.includes(r))].slice(0, 10);
     if (gpChart.length) {
         setChart('chart-ganho-perda', {
-            grid: { left: 8, right: 20, top: 8, bottom: 8, containLabel: true },
+            grid: GRIDS.horizontal,
             tooltip: {
                 trigger: 'axis',
                 formatter: p => `${p[0].name}: ${formatCurrencyCompact(p[0].value)}`

@@ -5,13 +5,13 @@
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=5.6';
+} from './api.js?v=5.5';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
     buildStockPanelInsights,
     renderInsightCards
-} from './insights.js?v=5.6';
+} from './insights.js?v=5.5';
 import {
     buildDecisionQuestions,
     buildCommercialSummary,
@@ -19,13 +19,13 @@ import {
     renderDecisionCards,
     renderSelectedQuestionPanel,
     renderCommercialTable
-} from './decisionQuestions.js?v=5.6';
-import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.6';
-import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.6';
-import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.6';
-import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.6';
-import { renderOperacoesGerencial, initOperacoesSubtabs } from './operacoesGerencial.js?v=5.6';
-import { aggregateCashByMonth } from './cashFlow.js?v=5.6';
+} from './decisionQuestions.js?v=5.5';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.5';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.5';
+import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.5';
+import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.5';
+import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.5';
+import { aggregateCashByMonth } from './cashFlow.js?v=5.5';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -37,7 +37,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=5.6';
+} from './charts.js?v=5.5';
 import {
     initFilters,
     loadFilterState,
@@ -49,7 +49,7 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=5.6';
+} from './filters.js?v=5.5';
 
 const charts = {};
 const chartsReady = new Set();
@@ -155,7 +155,16 @@ function setupChartResizeObserver() {
     chartResizeObserver = new ResizeObserver(() => {
         resizeVisibleCharts();
     });
-    document.querySelectorAll('.chart-body').forEach(el => chartResizeObserver.observe(el));
+    observeChartContainers();
+}
+
+function observeChartContainers() {
+    if (!chartResizeObserver) return;
+    document.querySelectorAll('.chart-body, .operations-chart-card, .operations-visual-scroll').forEach(el => {
+        if (el.dataset.resizeObserved) return;
+        el.dataset.resizeObserved = '1';
+        chartResizeObserver.observe(el);
+    });
 }
 
 function sortCultures(names) {
@@ -744,6 +753,13 @@ function renderOperacoesTab(drawChart = false) {
         drawChart,
         filterContext: getFilterContextLabel(filterState)
     });
+    observeChartContainers();
+    if (drawChart) {
+        requestAnimationFrame(() => {
+            resizeVisibleCharts();
+            requestAnimationFrame(resizeVisibleCharts);
+        });
+    }
 }
 
 /* ─── Tab / load ─── */
@@ -782,9 +798,11 @@ function refreshChartsForTab(tabId) {
             case 'caixa':
                 renderCaixaTab(selectedCaixaSubTab === 'visualizacoes');
                 break;
-            case 'operacoes':
-                renderOperacoesTab(selectedOperacoesSubTab === 'visualizacoes' || selectedOperacoesSubTab === 'maquinas');
+            case 'operacoes': {
+                const maqOpen = document.getElementById('field-maquinas-viz-accordion')?.open;
+                renderOperacoesTab(selectedOperacoesSubTab === 'visualizacoes' || (selectedOperacoesSubTab === 'maquinas' && maqOpen));
                 break;
+            }
             case 'perguntas':
                 renderPerguntas();
                 break;
@@ -961,8 +979,23 @@ async function loadDashboard() {
         initOperacoesSubtabs(tab => {
             selectedOperacoesSubTab = tab;
             const onOpTab = getCurrentTabId() === 'operacoes';
-            renderOperacoesTab(tab === 'visualizacoes' || tab === 'maquinas');
-            if (onOpTab) requestAnimationFrame(resizeVisibleCharts);
+            const needsCharts = tab === 'visualizacoes' || (tab === 'maquinas' && document.getElementById('field-maquinas-viz-accordion')?.open);
+            renderOperacoesTab(needsCharts);
+            if (onOpTab) {
+                requestAnimationFrame(() => {
+                    resizeVisibleCharts();
+                    requestAnimationFrame(resizeVisibleCharts);
+                });
+            }
+        });
+        initMaquinasVizAccordion(() => {
+            if (getCurrentTabId() === 'operacoes' && selectedOperacoesSubTab === 'maquinas') {
+                renderOperacoesTab(true);
+                requestAnimationFrame(() => {
+                    resizeVisibleCharts();
+                    requestAnimationFrame(resizeVisibleCharts);
+                });
+            }
         });
         setupChartResizeObserver();
         setupTabs();

@@ -1,14 +1,20 @@
 ﻿/**
- * Sub-aba Máquinas — uso e custo de equipamentos.
+ * Sub-aba Máquinas — demonstrativo de recursos operacionais.
  */
 import {
-    formatCurrency,
     formatCurrencyCompact,
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.6';
-import { horizontalBarOption, comboBarLineOption } from './charts.js?v=5.6';
+} from './api.js?v=5.5';
+import { horizontalBarOption, comboBarLineOption } from './charts.js?v=5.5';
+
+const MAQ_GRID = { left: 56, right: 28, top: 36, bottom: 56, containLabel: true };
+const MAQ_HGRID = { left: 110, right: 32, top: 24, bottom: 40, containLabel: true };
+
+function withGrid(option, grid) {
+    return { ...option, grid: { ...grid, ...(option.grid || {}) } };
+}
 
 function renderMaquinasKpis(container, maquinas, onDrill) {
     if (!container) return;
@@ -20,16 +26,17 @@ function renderMaquinasKpis(container, maquinas, onDrill) {
     const topHoras = [...sorted].sort((a, b) => Number(b.horas_totais) - Number(a.horas_totais))[0];
 
     const items = [
-        { label: 'Custo total máquinas', value: formatCurrencyCompact(totalCusto), tone: 'warn', drill: 'machine-total' },
-        { label: 'Horas totais', value: formatNumber(totalHoras, 0) + ' h', tone: 'default', drill: 'machine-horas' },
-        { label: 'Custo/hora médio', value: formatCurrencyCompact(custoHora), tone: 'warn', drill: 'machine-custo-hora' },
+        { label: 'Custo total máquinas', value: formatCurrencyCompact(totalCusto), tone: 'warn' },
+        { label: 'Horas totais', value: formatNumber(totalHoras, 0) + ' h', tone: 'default' },
+        { label: 'Custo/hora médio', value: formatCurrencyCompact(custoHora), tone: 'warn' },
         { label: 'Máquina mais onerosa', value: topCusto?.equipamento_nome?.slice(0, 18) || '—', hint: topCusto ? formatCurrencyCompact(topCusto.custo_total) : '', tone: 'critical', machine: topCusto?.equipamento_nome },
         { label: 'Máquina mais usada', value: topHoras?.equipamento_nome?.slice(0, 18) || '—', hint: topHoras ? formatNumber(topHoras.horas_totais, 0) + ' h' : '', tone: 'positive', machine: topHoras?.equipamento_nome }
     ];
 
     container.innerHTML = items.map(it => `
-        <div class="field-kpi-card field-kpi-card--${it.tone} field-kpi-card--clickable"
-             ${it.machine ? `data-machine="${it.machine}"` : ''} role="button" tabindex="0">
+        <div class="field-kpi-card field-kpi-card--${it.tone}${it.machine ? ' field-kpi-card--clickable' : ''}"
+             ${it.machine ? `data-machine="${it.machine}"` : ''}
+             ${it.machine ? 'role="button" tabindex="0"' : ''}>
             <span class="field-kpi-label">${it.label}</span>
             <span class="field-kpi-value">${it.value}</span>
             ${it.hint ? `<span class="field-kpi-hint">${it.hint}</span>` : ''}
@@ -39,10 +46,17 @@ function renderMaquinasKpis(container, maquinas, onDrill) {
     container.querySelectorAll('[data-machine]').forEach(node => {
         const open = () => onDrill?.('machine', { equipamento: node.dataset.machine });
         node.addEventListener('click', open);
+        node.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+        });
     });
 }
 
-export function renderOperacoesMaquinas({ maquinas, maoObra, charts, setChart, onDrill, drawChart = false }) {
+export function isMaquinasVizOpen() {
+    return document.getElementById('field-maquinas-viz-accordion')?.open === true;
+}
+
+export function renderOperacoesMaquinas({ maquinas, charts, setChart, onDrill, drawChart = false }) {
     const sorted = [...(maquinas || [])].sort((a, b) => Number(b.custo_total) - Number(a.custo_total));
     const totalCusto = sumField(sorted, 'custo_total');
 
@@ -86,10 +100,13 @@ export function renderOperacoesMaquinas({ maquinas, maoObra, charts, setChart, o
     if (!drawChart || !sorted.length) return;
 
     const top = sorted.slice(0, 8);
-    setChart('chart-maquinas-viz', comboBarLineOption(
-        top.map(m => m.equipamento_nome),
-        [{ name: 'Custo (R$)', data: top.map(m => Number(m.custo_total)) }],
-        [{ name: 'Horas', data: top.map(m => Number(m.horas_totais)) }]
+    setChart('chart-maquinas-viz', withGrid(
+        comboBarLineOption(
+            top.map(m => m.equipamento_nome),
+            [{ name: 'Custo (R$)', data: top.map(m => Number(m.custo_total)) }],
+            [{ name: 'Horas', data: top.map(m => Number(m.horas_totais)) }]
+        ),
+        MAQ_GRID
     ));
     const mChart = charts['chart-maquinas-viz'];
     mChart?.off('click');
@@ -98,10 +115,13 @@ export function renderOperacoesMaquinas({ maquinas, maoObra, charts, setChart, o
         if (m) onDrill?.('machine', { equipamento: m.equipamento_nome });
     });
 
-    setChart('chart-maquinas-custo-hora', horizontalBarOption(
-        top.map(m => m.equipamento_nome),
-        top.map(m => m.horas_totais ? Number(m.custo_total) / Number(m.horas_totais) : 0),
-        { formatter: v => formatCurrencyCompact(v) }
+    setChart('chart-maquinas-custo-hora', withGrid(
+        horizontalBarOption(
+            top.map(m => m.equipamento_nome),
+            top.map(m => m.horas_totais ? Number(m.custo_total) / Number(m.horas_totais) : 0),
+            { formatter: v => formatCurrencyCompact(v) }
+        ),
+        MAQ_HGRID
     ));
     const chChart = charts['chart-maquinas-custo-hora'];
     chChart?.off('click');

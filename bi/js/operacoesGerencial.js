@@ -1,17 +1,16 @@
 ﻿/**
  * Operações — Performance da Safra por talhão.
  */
-import { formatCurrencyCompact } from './api.js?v=5.6';
 import {
     buildTalhaoPerformanceModel,
     buildFieldPerformanceInsights,
     buildFieldPerformanceKpis,
     renderFieldPerformanceTable
-} from './fieldPerformance.js?v=5.6';
-import { renderOperacoesVisualizacoes } from './operacoesVisualizacoes.js?v=5.6';
-import { renderOperacoesMaquinas } from './operacoesMaquinas.js?v=5.6';
-import { renderOperacoesApontamentos } from './operacoesApontamentos.js?v=5.6';
-import { renderInsightCards } from './insights.js?v=5.6';
+} from './fieldPerformance.js?v=5.5';
+import { renderOperacoesVisualizacoes } from './operacoesVisualizacoes.js?v=5.5';
+import { renderOperacoesMaquinas, isMaquinasVizOpen } from './operacoesMaquinas.js?v=5.5';
+import { renderOperacoesApontamentos } from './operacoesApontamentos.js?v=5.5';
+import { renderInsightCards } from './insights.js?v=5.5';
 
 function renderBreadcrumb(container, filterContext) {
     if (!container) return;
@@ -79,7 +78,6 @@ export function renderOperacoesGerencial({
     renderOperacoesVisualizacoes({
         model,
         talhoes: store.talhoes,
-        maquinas: store.maquinas,
         charts,
         setChart,
         onDrill,
@@ -88,11 +86,10 @@ export function renderOperacoesGerencial({
 
     renderOperacoesMaquinas({
         maquinas: store.maquinas,
-        maoObra: store.maoObra,
         charts,
         setChart,
         onDrill,
-        drawChart: drawChart && subTab === 'maquinas'
+        drawChart: drawChart && subTab === 'maquinas' && isMaquinasVizOpen()
     });
 
     renderOperacoesApontamentos(document.getElementById('field-apontamentos-host'));
@@ -109,6 +106,15 @@ export function renderOperacoesGerencial({
 export function initOperacoesSubtabs(onChange) {
     document.querySelectorAll('.field-segment').forEach(btn => {
         btn.addEventListener('click', () => onChange(btn.dataset.fieldSubtab));
+    });
+}
+
+export function initMaquinasVizAccordion(onOpen) {
+    const acc = document.getElementById('field-maquinas-viz-accordion');
+    if (!acc || acc.dataset.bound) return;
+    acc.dataset.bound = '1';
+    acc.addEventListener('toggle', () => {
+        if (acc.open) onOpen?.();
     });
 }
 

@@ -7,7 +7,7 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.6';
+} from './api.js?v=5.5';
 
 function rowKey(r) {
     return `${r.safra_codigo || ''}|${r.talhao_codigo}|${r.cultura_nome}`;
@@ -244,13 +244,11 @@ export function renderFieldPerformanceTable(container, model, onRowClick) {
                     <div>Cultura</div>
                     <div class="field-number field-col-hide-sm">Área</div>
                     <div class="field-number">Prod.</div>
-                    <div class="field-number field-col-hide-sm">Prod. média</div>
                     <div class="field-number">Δ Prod.</div>
-                    <div class="field-number field-col-hide-sm">Receita est.</div>
-                    <div class="field-number field-col-hide-sm">Custo total</div>
                     <div class="field-number">Custo/ha</div>
                     <div class="field-number field-col-hide-sm">Custo/sc</div>
-                    <div class="field-number">Resultado/ha</div>
+                    <div class="field-number">Resultado</div>
+                    <div class="field-number">Result./ha</div>
                     <div class="field-number field-col-hide-sm">Margem</div>
                     <div class="field-number">G/P vs média</div>
                     <div>Status</div>
@@ -259,6 +257,7 @@ export function renderFieldPerformanceTable(container, model, onRowClick) {
                     const barW = Math.min(100, (Math.abs(r.margem_pct) / maxMargem) * 100);
                     const desvioCls = r.desvio_produtividade_pct >= 0 ? 'field-value-positive' : 'field-value-negative';
                     const gpCls = r.ganho_perda_valor_vs_media >= 0 ? 'field-value-positive' : 'field-value-negative';
+                    const resCls = r.resultado >= 0 ? 'field-value-positive' : 'field-value-negative';
                     return `
                     <button type="button" class="${rowClass(r)}"
                             data-talhao="${r.talhao_codigo}" data-cultura="${r.cultura_nome}"
@@ -267,12 +266,10 @@ export function renderFieldPerformanceTable(container, model, onRowClick) {
                         <div>${r.cultura_nome}</div>
                         <div class="field-number field-col-hide-sm">${formatNumber(r.area_ha, 0)} ha</div>
                         <div class="field-number">${formatNumber(r.produtividade_sc_ha, 1)}</div>
-                        <div class="field-number field-col-hide-sm">${formatNumber(r.produtividade_media_cultura_sc_ha, 1)}</div>
                         <div class="field-number ${desvioCls}">${formatPct(r.desvio_produtividade_pct)}</div>
-                        <div class="field-number field-col-hide-sm">${formatCurrencyCompact(r.receita_estimada)}</div>
-                        <div class="field-number field-col-hide-sm">${formatCurrencyCompact(r.custo_total)}</div>
                         <div class="field-number">${formatCurrencyCompact(r.custo_ha)}</div>
                         <div class="field-number field-col-hide-sm">${r.custo_sc ? formatCurrencyCompact(r.custo_sc) : '—'}</div>
+                        <div class="field-number ${resCls}">${formatCurrencyCompact(r.resultado)}</div>
                         <div class="field-number field-metric-wrap">
                             <div class="field-metric-bar" style="width:${barW}%"></div>
                             <span>${formatCurrencyCompact(r.resultado_ha)}</span>
@@ -312,6 +309,16 @@ export function buildFieldPerformanceKpis(model) {
     const atencao = rows.find(r => r.status_tone === 'critical')
         || [...rows].sort((a, b) => Number(a.desvio_produtividade_pct) - Number(b.desvio_produtividade_pct))[0];
     const ganhoPerdaTotal = sumField(rows, 'ganho_perda_valor_vs_media');
+    const maxAbsGp = Math.max(...rows.map(r => Math.abs(r.ganho_perda_valor_vs_media)), 0);
+    let gpValue = fmtSignedCompact(ganhoPerdaTotal);
+    let gpTone = ganhoPerdaTotal >= 0 ? 'positive' : 'warn';
+    if (maxAbsGp < 1) {
+        gpValue = 'Sem desvio relevante';
+        gpTone = 'default';
+    } else if (Math.abs(ganhoPerdaTotal) < 1) {
+        gpValue = 'Em apuração';
+        gpTone = 'default';
+    }
 
     return [
         { label: 'Resultado total', value: formatCurrencyCompact(sumField(rows, 'resultado')), tone: 'positive', drill: 'field-resultado-total' },
@@ -320,6 +327,6 @@ export function buildFieldPerformanceKpis(model) {
         { label: 'Custo médio/sc', value: formatCurrencyCompact(custoScMed), tone: 'warn', drill: 'field-custo-sc' },
         { label: 'Melhor talhão', value: best?.talhao_codigo || '—', hint: best ? formatCurrencyCompact(best.resultado_ha) + '/ha' : '', tone: 'positive', drill: 'field-melhor', talhao: best?.talhao_codigo, cultura: best?.cultura_nome },
         { label: 'Talhão de atenção', value: atencao?.talhao_codigo || '—', hint: atencao?.status_chip || '', tone: 'critical', drill: 'field-atencao', talhao: atencao?.talhao_codigo, cultura: atencao?.cultura_nome },
-        { label: 'G/P produtividade', value: fmtSignedCompact(ganhoPerdaTotal), hint: 'vs média da cultura', tone: ganhoPerdaTotal >= 0 ? 'positive' : 'warn', drill: 'field-ganho-perda' }
+        { label: 'G/P produtividade', value: gpValue, hint: 'vs média da cultura', tone: gpTone, drill: 'field-ganho-perda' }
     ];
 }
