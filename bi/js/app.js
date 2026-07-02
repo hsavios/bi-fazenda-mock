@@ -24,7 +24,7 @@ import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.8';
 import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.8';
 import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.8';
 import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.8';
-import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.8';
+import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.9';
 import {
     registerBiChart,
     unregisterBiChart,
@@ -162,7 +162,7 @@ function setupChartResizeObserver() {
 function observeChartContainers() {
     if (!chartResizeObserver) return;
     document.querySelectorAll(
-        '.chart-body, .bi-chart-card__body, .chart-card-body, .bi-chart-card, .operations-visualizations-view, .operations-maquinas-viz-panel'
+        '.chart-body, .bi-chart-card__body, .chart-card-body, .bi-chart-card, .operations-visualizations-view, .machine-visuals-panel'
     ).forEach(node => {
         if (node.dataset.resizeObserved) return;
         node.dataset.resizeObserved = '1';
@@ -984,6 +984,8 @@ async function loadDashboard() {
             if (getCurrentTabId() === 'operacoes' && selectedOperacoesSubTab === 'maquinas') {
                 renderOperacoesTab(true);
                 scheduleChartResize(resizeVisibleCharts);
+                setTimeout(() => scheduleChartResize(resizeVisibleCharts), 150);
+                setTimeout(() => scheduleChartResize(resizeVisibleCharts), 300);
             }
         });
         setupChartResizeObserver();

@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=5.8">
+    <link rel="stylesheet" href="css/styles.css?v=5.9">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=5.8"></script>
+    <script type="module" src="js/app.js?v=5.9"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -447,41 +447,43 @@
                                 </div>
                             </div>
                             <div class="field-subpanel hidden" data-field-subpanel="maquinas">
-                                <header class="field-viz-head">
-                                    <h3 class="block-title">Máquinas e recursos</h3>
-                                    <p class="chart-desc">Demonstrativo de uso, custo e participação no operacional</p>
-                                </header>
-                                <div class="field-kpi-strip field-kpi-strip--compact" id="kpi-maquinas"></div>
-                                <div class="field-maquinas-wrap">
-                                    <div id="field-maquinas-table" class="field-maquinas-host"></div>
-                                </div>
-                                <details class="field-maquinas-accordion" id="field-maquinas-viz-accordion">
-                                    <summary>Ver visualizações de máquinas</summary>
-                                    <div class="operations-maquinas-viz-panel">
-                                        <div class="operations-visual-grid operations-visual-grid--compact">
-                                            <div class="bi-chart-card">
-                                                <div class="bi-chart-card__header">
-                                                    <h3>Horas × Custo por máquina</h3>
-                                                    <p>Top 8 equipamentos da safra</p>
+                                <div class="machines-view">
+                                    <header class="machines-view-header">
+                                        <h3 class="block-title">Máquinas e Recursos</h3>
+                                        <p class="chart-desc">Horas, custo e participação no operacional</p>
+                                    </header>
+                                    <div class="field-kpi-strip field-kpi-strip--compact" id="kpi-maquinas"></div>
+                                    <div class="machine-table-shell">
+                                        <div id="field-maquinas-table" class="machine-table-host"></div>
+                                    </div>
+                                    <details class="machine-visuals-accordion" id="field-maquinas-viz-accordion">
+                                        <summary>Ver visualizações de máquinas</summary>
+                                        <div class="machine-visuals-panel">
+                                            <div class="machine-visuals-grid">
+                                                <div class="bi-chart-card bi-chart-card--viz">
+                                                    <div class="bi-chart-card__header">
+                                                        <h3>Horas × Custo por máquina</h3>
+                                                        <p>Top equipamentos da safra · barras = custo · linha = horas</p>
+                                                    </div>
+                                                    <div class="bi-chart-card__body">
+                                                        <div id="chart-maquinas-viz" class="bi-chart bi-chart--viz chart"></div>
+                                                    </div>
+                                                    <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                                 </div>
-                                                <div class="bi-chart-card__body">
-                                                    <div id="chart-maquinas-viz" class="bi-chart bi-chart--lg chart chart--lg"></div>
+                                                <div class="bi-chart-card bi-chart-card--viz">
+                                                    <div class="bi-chart-card__header">
+                                                        <h3>Ranking custo/hora</h3>
+                                                        <p>Comparativo por equipamento</p>
+                                                    </div>
+                                                    <div class="bi-chart-card__body">
+                                                        <div id="chart-maquinas-custo-hora" class="bi-chart bi-chart--viz chart"></div>
+                                                    </div>
+                                                    <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                                 </div>
-                                                <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
-                                            </div>
-                                            <div class="bi-chart-card">
-                                                <div class="bi-chart-card__header">
-                                                    <h3>Ranking custo/hora</h3>
-                                                    <p>Comparativo por equipamento</p>
-                                                </div>
-                                                <div class="bi-chart-card__body">
-                                                    <div id="chart-maquinas-custo-hora" class="bi-chart bi-chart--md chart chart--md"></div>
-                                                </div>
-                                                <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                             </div>
                                         </div>
-                                    </div>
-                                </details>
+                                    </details>
+                                </div>
                             </div>
                             <div class="field-subpanel hidden" data-field-subpanel="apontamentos">
                                 <div id="field-apontamentos-host" class="field-apontamentos-host"></div>

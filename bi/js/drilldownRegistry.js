@@ -504,6 +504,62 @@ function buildMachineDrill(equipamento, data) {
     };
 }
 
+function buildMachineFleetDrill(metric, data) {
+    const maquinas = [...(data.maquinas || [])].sort((a, b) => Number(b.custo_total) - Number(a.custo_total));
+    const totalCusto = sumField(maquinas, 'custo_total');
+    const totalHoras = sumField(maquinas, 'horas_totais');
+    const custoHora = totalHoras ? totalCusto / totalHoras : 0;
+
+    const configs = {
+        custo: {
+            title: 'Custo total de máquinas',
+            subtitle: 'Consolidado da frota no recorte',
+            highlight: formatCurrency(totalCusto),
+            rowValue: m => formatCurrencyCompact(m.custo_total),
+            rowMeta: m => formatPct(pctShare(m.custo_total, totalCusto))
+        },
+        horas: {
+            title: 'Horas totais da frota',
+            subtitle: 'Uso operacional consolidado',
+            highlight: formatNumber(totalHoras, 0) + ' h',
+            rowValue: m => formatNumber(m.horas_totais, 0) + ' h',
+            rowMeta: m => formatPct(pctShare(m.horas_totais, totalHoras))
+        },
+        custoHora: {
+            title: 'Custo/hora médio',
+            subtitle: 'Média ponderada da frota',
+            highlight: formatCurrency(custoHora),
+            rowValue: m => formatCurrencyCompact(m.horas_totais ? Number(m.custo_total) / Number(m.horas_totais) : 0),
+            rowMeta: m => formatNumber(m.horas_totais, 0) + ' h'
+        }
+    };
+    const cfg = configs[metric] || configs.custo;
+
+    return {
+        type: 'machineFleet',
+        title: cfg.title,
+        subtitle: cfg.subtitle,
+        metrics: [
+            { label: 'Equipamentos', value: formatNumber(maquinas.length, 0), highlight: true },
+            { label: 'Indicador', value: cfg.highlight },
+            { label: 'Custo total frota', value: formatCurrencyCompact(totalCusto) },
+            { label: 'Horas totais', value: formatNumber(totalHoras, 0) + ' h' }
+        ],
+        rows: maquinas.slice(0, 8).map(m => ({
+            label: m.equipamento_nome,
+            value: cfg.rowValue(m),
+            meta: cfg.rowMeta(m)
+        })),
+        insight: {
+            title: 'Leitura gerencial',
+            text: 'A frota concentra custo operacional relevante — compare participação e eficiência horária por equipamento.',
+            tone: 'info'
+        },
+        nextAction: 'Abra uma máquina específica na tabela para detalhar apontamentos e custo/hora.',
+        source: 'vw_uso_maquinas_safra'
+    };
+}
+
 function buildWaterfallStepDrill(label, data) {
     const byCulture = aggregateDreByCulture(data.dre || []);
     const receita = sumField(byCulture, 'receita_bruta');
@@ -978,6 +1034,8 @@ export function resolveDrilldown(type, context = {}) {
             return buildCashMovementDrill(context.movement, data);
         case 'machine':
             return buildMachineDrill(context.equipamento || context.name, data);
+        case 'machineFleet':
+            return buildMachineFleetDrill(context.metric, data);
         case 'waterfallStep':
             return buildWaterfallStepDrill(context.label || context.name, data);
         case 'heatmapCell':

@@ -8,7 +8,7 @@ import {
     renderFieldPerformanceTable
 } from './fieldPerformance.js?v=5.6';
 import { renderOperacoesVisualizacoes } from './operacoesVisualizacoes.js?v=5.8';
-import { renderOperacoesMaquinas, isMaquinasVizOpen } from './operacoesMaquinas.js?v=5.6';
+import { renderOperacoesMaquinas, isMaquinasVizOpen, initMaquinasAccordionDefault } from './operacoesMaquinas.js?v=5.9';
 import { renderOperacoesApontamentos } from './operacoesApontamentos.js?v=5.6';
 import { renderInsightCards } from './insights.js?v=5.6';
 
@@ -100,6 +100,10 @@ function drawOperacoesCharts({ subTab, drawChart, model, store, charts, setChart
             if (shouldDrawViz) {
                 setTimeout(() => onChartsReady?.(), 150);
             }
+            if (shouldDrawMaq) {
+                setTimeout(() => onChartsReady?.(), 150);
+                setTimeout(() => onChartsReady?.(), 300);
+            }
         });
     };
 
@@ -164,6 +168,7 @@ export function initOperacoesSubtabs(onChange) {
 }
 
 export function initMaquinasVizAccordion(onOpen) {
+    initMaquinasAccordionDefault();
     const acc = document.getElementById('field-maquinas-viz-accordion');
     if (!acc || acc.dataset.bound) return;
     acc.dataset.bound = '1';

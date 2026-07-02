@@ -2404,39 +2404,46 @@ th.cash-matrix--hot {
     border-radius: 8px;
 }
 
-/* Operações — painel máquinas (visualizações compactas) */
-.operations-maquinas-viz-panel {
+/* Operações — sub-aba Máquinas */
+.field-subpanel[data-field-subpanel="maquinas"]:not(.hidden) {
     flex: 1;
     min-height: 0;
+    overflow: hidden;
+}
+
+.machines-view {
     height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.operations-maquinas-viz-panel .operations-visual-grid {
-    grid-template-columns: 1fr;
-    grid-auto-rows: minmax(320px, auto);
-    padding: 0.65rem;
-    max-height: 720px;
-}
-
-@media (min-width: 900px) {
-    .operations-maquinas-viz-panel .operations-visual-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-.field-maquinas-wrap {
-    flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-.field-maquinas-host {
-    flex: 1;
+.machines-view-header {
+    flex: 0 0 auto;
+}
+
+.machines-view-header .block-title {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.machines-view-header .chart-desc {
+    margin: 0.2rem 0 0;
+    font-size: 0.68rem;
+    color: var(--muted);
+}
+
+.field-premium.field-mode-maquinas #kpi-maquinas {
+    flex: 0 0 auto;
+}
+
+.machine-table-shell {
+    flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
     background: var(--surface);
@@ -2445,17 +2452,80 @@ th.cash-matrix--hot {
     box-shadow: var(--shadow-sm);
 }
 
-.field-maquinas-accordion {
-    flex-shrink: 0;
+.machine-table-host {
+    min-height: 0;
+}
+
+.machine-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+
+.machine-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.machine-table th {
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: #f2f7f3;
+    border-bottom: 1px solid var(--border-light);
+    white-space: nowrap;
+}
+
+.machine-table th.machine-table__num {
+    text-align: right;
+}
+
+.machine-table td {
+    padding: 9px 12px;
+    font-size: 0.72rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    vertical-align: middle;
+}
+
+.machine-table td.machine-table__num {
+    text-align: right;
+}
+
+.machine-table tbody tr {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.machine-table tbody tr:hover {
+    background: rgba(20, 83, 45, 0.045);
+}
+
+.machine-table tbody tr:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.machine-table__name {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.machine-visuals-accordion {
+    flex: 0 0 auto;
+    margin-top: 14px;
     border: 1px solid var(--border-light);
     border-radius: var(--radius);
     background: var(--surface);
     overflow: hidden;
 }
 
-.field-maquinas-accordion summary {
+.machine-visuals-accordion summary {
     cursor: pointer;
-    padding: 0.5rem 0.75rem;
+    padding: 0.55rem 0.85rem;
     font-size: 0.72rem;
     font-weight: 600;
     color: var(--accent-dark);
@@ -2463,57 +2533,54 @@ th.cash-matrix--hot {
     user-select: none;
 }
 
-.field-maquinas-accordion summary::-webkit-details-marker { display: none; }
+.machine-visuals-accordion summary::-webkit-details-marker { display: none; }
 
-.field-maquinas-accordion summary::before {
+.machine-visuals-accordion summary::before {
     content: '▸ ';
     color: var(--accent);
 }
 
-.field-maquinas-accordion[open] summary::before { content: '▾ '; }
+.machine-visuals-accordion[open] summary::before { content: '▾ '; }
 
-.field-maquinas-accordion[open] summary {
+.machine-visuals-accordion[open] summary {
     border-bottom: 1px solid var(--border-light);
     background: linear-gradient(180deg, #f8fbf9 0%, #f4f8f5 100%);
 }
 
-.field-maquinas-shell { display: flex; flex-direction: column; }
+.machine-visuals-panel {
+    max-height: min(720px, 48vh);
+    overflow: auto;
+    padding: 12px 8px 14px;
+}
 
-.field-maquinas-head,
-.field-maquina-row {
+.machine-visuals-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr) repeat(4, minmax(64px, 0.7fr)) minmax(88px, 0.85fr);
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    font-variant-numeric: tabular-nums;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-content: start;
 }
 
-.field-maquinas-head {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: #f2f7f3;
-    border-bottom: 1px solid var(--border-light);
-    font-size: 0.6rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--muted);
+.machine-visuals-grid .bi-chart-card {
+    min-height: 340px;
 }
 
-.field-maquina-row {
+.machine-visuals-grid .bi-chart-card__body {
+    min-height: 300px;
+}
+
+.machine-visuals-grid .bi-chart--viz {
     width: 100%;
-    border: none;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-    background: transparent;
-    text-align: left;
-    font: inherit;
-    font-size: 0.72rem;
-    cursor: pointer;
-    transition: background 0.15s;
+    height: 100%;
+    min-height: 300px;
 }
 
-.field-maquina-row:hover { background: rgba(20, 83, 45, 0.045); }
+@media (max-width: 1280px) {
+    .machine-visuals-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* legado — classes antigas substituídas por machine-* */
 
 .field-apontamentos-host {
     flex: 1;
