@@ -6,8 +6,8 @@ import {
     formatCurrencyCompact,
     formatPct,
     formatNumber
-} from './api.js?v=5.3';
-import { openDreLinePanel, openDreZoomView, closeDreZoomView } from './drePanels.js?v=5.3';
+} from './api.js?v=5.3.1';
+import { openDreLinePanel, openDreZoomView, closeDreZoomView } from './drePanels.js?v=5.3.1';
 
 const LINHA_GRUPO_ORDEM = {
     'Receita bruta': 10,
@@ -63,6 +63,8 @@ function fmtVal(v) {
 }
 let activeRowId = null;
 let expandedNodes = new Set(DEFAULT_EXPANDED);
+
+function aggregateContabilByGrupo(contabilRows) {
     const map = new Map();
     (contabilRows || []).forEach(r => {
         const og = Number(r.ordem_grupo || 0);

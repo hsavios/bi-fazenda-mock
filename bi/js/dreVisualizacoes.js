@@ -5,9 +5,9 @@ import {
     formatCurrency,
     formatCurrencyCompact,
     formatPct
-} from './api.js?v=5.3';
-import { renderInsightCards } from './insights.js?v=5.3';
-import { horizontalBarOption } from './charts.js?v=5.3';
+} from './api.js?v=5.3.1';
+import { renderInsightCards } from './insights.js?v=5.3.1';
+import { horizontalBarOption } from './charts.js?v=5.3.1';
 
 function buildInsights(lines, culturaComp) {
     const get = name => lines.find(l => l.linha_dre === name)?.valor || 0;
