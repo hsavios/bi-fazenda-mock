@@ -1,10 +1,10 @@
 /**
  * Cliente de dados — caminhos relativos via nginx (/api → PostgREST interno)
  */
-const API_BASE = '/api';
+export const API_BASE = '/api';
 const FETCH_TIMEOUT_MS = 25000;
 
-async function fetchView(viewName, params = {}) {
+export async function fetchView(viewName, params = {}) {
     const url = new URL(`${API_BASE}/${viewName}`, window.location.origin);
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
@@ -23,18 +23,18 @@ async function fetchView(viewName, params = {}) {
     }
 }
 
-function formatNumber(n, decimals = 0) {
+export function formatNumber(n, decimals = 0) {
     if (n == null || isNaN(n)) return '—';
     return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-function formatCurrency(n) {
+export function formatCurrency(n) {
     if (n == null || isNaN(n)) return '—';
     return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 /** Formato compacto para KPIs — evita quebra de linha em cards estreitos */
-function formatCurrencyCompact(n) {
+export function formatCurrencyCompact(n) {
     if (n == null || isNaN(n)) return '—';
     const num = Number(n);
     const abs = Math.abs(num);
@@ -51,21 +51,11 @@ function formatCurrencyCompact(n) {
     return formatCurrency(num);
 }
 
-function formatPct(n) {
+export function formatPct(n) {
     if (n == null || isNaN(n)) return '—';
     return formatNumber(n, 1) + '%';
 }
 
-function sumField(rows, key) {
+export function sumField(rows, key) {
     return rows.reduce((s, r) => s + Number(r[key] || 0), 0);
 }
-
-export {
-    fetchView,
-    formatNumber,
-    formatCurrency,
-    formatCurrencyCompact,
-    formatPct,
-    sumField,
-    API_BASE
-};

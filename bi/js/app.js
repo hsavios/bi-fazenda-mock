@@ -5,7 +5,7 @@ import {
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js';
+} from './api.js?v=3.3';
 
 const charts = {};
 const chartsReady = new Set();
