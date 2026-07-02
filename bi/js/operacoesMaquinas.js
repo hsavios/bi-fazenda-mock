@@ -6,14 +6,19 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.5.1';
-import { horizontalBarOption, comboBarLineOption } from './charts.js?v=5.5.1';
+} from './api.js?v=5.6';
+import { horizontalBarOption, comboBarLineOption } from './charts.js?v=5.6';
 
 const MAQ_GRID = { left: 56, right: 28, top: 36, bottom: 56, containLabel: true };
-const MAQ_HGRID = { left: 110, right: 32, top: 24, bottom: 40, containLabel: true };
+const MAQ_HGRID = { left: 120, right: 24, top: 28, bottom: 42, containLabel: true };
 
 function withGrid(option, grid) {
     return { ...option, grid: { ...grid, ...(option.grid || {}) } };
+}
+
+function truncLabel(label, max = 16) {
+    const s = String(label || '');
+    return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
 function renderMaquinasKpis(container, maquinas, onDrill) {
@@ -29,8 +34,8 @@ function renderMaquinasKpis(container, maquinas, onDrill) {
         { label: 'Custo total máquinas', value: formatCurrencyCompact(totalCusto), tone: 'warn' },
         { label: 'Horas totais', value: formatNumber(totalHoras, 0) + ' h', tone: 'default' },
         { label: 'Custo/hora médio', value: formatCurrencyCompact(custoHora), tone: 'warn' },
-        { label: 'Máquina mais onerosa', value: topCusto?.equipamento_nome?.slice(0, 18) || '—', hint: topCusto ? formatCurrencyCompact(topCusto.custo_total) : '', tone: 'critical', machine: topCusto?.equipamento_nome },
-        { label: 'Máquina mais usada', value: topHoras?.equipamento_nome?.slice(0, 18) || '—', hint: topHoras ? formatNumber(topHoras.horas_totais, 0) + ' h' : '', tone: 'positive', machine: topHoras?.equipamento_nome }
+        { label: 'Máquina mais onerosa', value: truncLabel(topCusto?.equipamento_nome, 18) || '—', hint: topCusto ? formatCurrencyCompact(topCusto.custo_total) : '', tone: 'critical', machine: topCusto?.equipamento_nome },
+        { label: 'Máquina mais usada', value: truncLabel(topHoras?.equipamento_nome, 18) || '—', hint: topHoras ? formatNumber(topHoras.horas_totais, 0) + ' h' : '', tone: 'positive', machine: topHoras?.equipamento_nome }
     ];
 
     container.innerHTML = items.map(it => `
@@ -100,14 +105,29 @@ export function renderOperacoesMaquinas({ maquinas, charts, setChart, onDrill, d
     if (!drawChart || !sorted.length) return;
 
     const top = sorted.slice(0, 8);
-    setChart('chart-maquinas-viz', withGrid(
+    const fullNames = top.map(m => m.equipamento_nome);
+    const shortNames = fullNames.map(n => truncLabel(n, 14));
+
+    const comboOpt = withGrid(
         comboBarLineOption(
-            top.map(m => m.equipamento_nome),
+            shortNames,
             [{ name: 'Custo (R$)', data: top.map(m => Number(m.custo_total)) }],
             [{ name: 'Horas', data: top.map(m => Number(m.horas_totais)) }]
         ),
         MAQ_GRID
-    ));
+    );
+    comboOpt.tooltip = {
+        trigger: 'axis',
+        formatter: params => {
+            const idx = params[0]?.dataIndex ?? 0;
+            const name = fullNames[idx] || params[0]?.name;
+            return params.map(p => `${p.marker} ${p.seriesName}: ${p.seriesName === 'Custo (R$)' ? formatCurrencyCompact(p.value) : p.value + ' h'}`).join('<br>')
+                + `<br><strong>${name}</strong>`;
+        }
+    };
+    comboOpt.xAxis = { ...comboOpt.xAxis, axisLabel: { fontSize: 10, interval: 0, rotate: shortNames.length > 5 ? 18 : 0 } };
+
+    setChart('chart-maquinas-viz', comboOpt);
     const mChart = charts['chart-maquinas-viz'];
     mChart?.off('click');
     mChart?.on('click', p => {
@@ -117,9 +137,9 @@ export function renderOperacoesMaquinas({ maquinas, charts, setChart, onDrill, d
 
     setChart('chart-maquinas-custo-hora', withGrid(
         horizontalBarOption(
-            top.map(m => m.equipamento_nome),
+            shortNames,
             top.map(m => m.horas_totais ? Number(m.custo_total) / Number(m.horas_totais) : 0),
-            { formatter: v => formatCurrencyCompact(v) }
+            { formatter: v => formatCurrencyCompact(v), tooltipNames: fullNames, maxWidth: 24 }
         ),
         MAQ_HGRID
     ));

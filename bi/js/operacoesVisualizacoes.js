@@ -4,25 +4,31 @@
 import {
     formatCurrency,
     formatCurrencyCompact,
-    formatNumber
-} from './api.js?v=5.5.1';
+    formatNumber,
+    formatPct
+} from './api.js?v=5.6';
 import {
     paretoOption,
     horizontalBarOption,
     heatmapOption
-} from './charts.js?v=5.5.1';
-import { CHART_COLORS } from './charts.js?v=5.5.1';
+} from './charts.js?v=5.6';
+import { CHART_COLORS } from './charts.js?v=5.6';
 
 const GRIDS = {
-    scatter: { left: 56, right: 28, top: 36, bottom: 56, containLabel: true },
-    horizontal: { left: 110, right: 32, top: 24, bottom: 40, containLabel: true },
-    heatmap: { left: 80, right: 32, top: 24, bottom: 54, containLabel: true },
-    pareto: { left: 56, right: 48, top: 36, bottom: 56, containLabel: true },
-    bar: { left: 56, right: 28, top: 24, bottom: 40, containLabel: true }
+    default: { left: 56, right: 28, top: 36, bottom: 52, containLabel: true },
+    horizontal: { left: 110, right: 24, top: 28, bottom: 42, containLabel: true },
+    heatmap: { left: 70, right: 24, top: 28, bottom: 54, containLabel: true },
+    scatter: { left: 70, right: 24, top: 32, bottom: 56, containLabel: true },
+    pareto: { left: 56, right: 48, top: 36, bottom: 56, containLabel: true }
 };
 
 function withGrid(option, gridKey) {
     return { ...option, grid: { ...GRIDS[gridKey], ...(option.grid || {}) } };
+}
+
+function truncLabel(label, max = 12) {
+    const s = String(label || '');
+    return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
 export function renderOperacoesVisualizacoes({
@@ -48,7 +54,7 @@ export function renderOperacoesVisualizacoes({
     }
 
     const culturas = [...new Set((talhoes || []).map(t => t.cultura_nome))].sort();
-    const talhaoCodes = [...new Set((talhoes || []).map(t => t.talhao_codigo))].slice(0, 10);
+    const talhaoCodes = [...new Set((talhoes || []).map(t => t.talhao_codigo))].slice(0, 8);
     const heatMatrix = talhaoCodes.map(tc =>
         culturas.map(cult => {
             const row = rows.find(r => r.talhao_codigo === tc && r.cultura_nome === cult);
@@ -58,6 +64,8 @@ export function renderOperacoesVisualizacoes({
     if (talhaoCodes.length && culturas.length) {
         const heatOpt = withGrid(heatmapOption(culturas, talhaoCodes, heatMatrix), 'heatmap');
         heatOpt.grid = { ...GRIDS.heatmap, bottom: 72 };
+        heatOpt.xAxis = { ...heatOpt.xAxis, axisLabel: { fontSize: 10, interval: 0 } };
+        heatOpt.yAxis = { ...heatOpt.yAxis, axisLabel: { fontSize: 10 } };
         setChart('chart-heatmap-talhao', heatOpt);
         const heatChart = charts['chart-heatmap-talhao'];
         heatChart?.off('click');
@@ -72,15 +80,20 @@ export function renderOperacoesVisualizacoes({
 
     const byResult = [...rows].sort((a, b) => Number(b.resultado) - Number(a.resultado)).slice(0, 8);
     if (byResult.length) {
+        const labels = byResult.map(r => r.talhao_codigo);
         setChart('chart-ranking-talhao', withGrid(
             horizontalBarOption(
-                byResult.map(r => r.talhao_codigo),
+                labels.map(l => truncLabel(l, 10)),
                 byResult.map(r => Number(r.resultado)),
-                { color: CHART_COLORS.light, formatter: v => formatCurrency(v) }
+                {
+                    color: CHART_COLORS.light,
+                    formatter: v => formatCurrency(v),
+                    tooltipNames: labels
+                }
             ),
             'horizontal'
         ));
-        bindTalhaoChart(charts['chart-ranking-talhao'], byResult.map(r => r.talhao_codigo), onDrill, false);
+        bindTalhaoChart(charts['chart-ranking-talhao'], labels, onDrill, false);
     }
 
     const scatterRows = rows.filter(r => r.area_ha > 0).slice(0, 20);
@@ -93,7 +106,8 @@ export function renderOperacoesVisualizacoes({
                     return `<strong>${d.name}</strong><br>
                         Produtividade: ${formatNumber(d.value[0], 1)} sc/ha<br>
                         Custo/ha: ${formatCurrency(d.value[1])}<br>
-                        Resultado/ha: ${formatCurrencyCompact(d.resultadoHa)}`;
+                        Resultado/ha: ${formatCurrencyCompact(d.resultadoHa)}<br>
+                        Margem: ${formatPct(d.margemPct)}`;
                 }
             },
             grid: GRIDS.scatter,
@@ -105,17 +119,18 @@ export function renderOperacoesVisualizacoes({
             },
             yAxis: {
                 name: 'Custo/ha',
-                nameGap: 36,
+                nameGap: 42,
                 nameTextStyle: { fontSize: 10 },
                 axisLabel: { fontSize: 10, formatter: v => formatCurrencyCompact(v) }
             },
             series: [{
                 type: 'scatter',
-                symbolSize: d => Math.max(14, Math.min(48, Math.sqrt(Math.abs(d[2])) / 120)),
+                symbolSize: d => Math.max(16, Math.min(52, Math.sqrt(Math.abs(d[2])) / 100)),
                 data: scatterRows.map(r => ({
                     name: r.talhao_codigo,
                     value: [r.produtividade_sc_ha, r.custo_ha, Math.abs(r.resultado)],
                     resultadoHa: r.resultado_ha,
+                    margemPct: r.margem_pct,
                     itemStyle: { color: r.resultado >= 0 ? '#2d6a4f' : '#c1121f' }
                 }))
             }]
@@ -128,28 +143,43 @@ export function renderOperacoesVisualizacoes({
     }
 
     const ganhoSorted = [...rows].sort((a, b) => Number(b.ganho_perda_valor_vs_media) - Number(a.ganho_perda_valor_vs_media));
-    const gpTop = ganhoSorted.slice(0, 6);
-    const gpBottom = [...rows].sort((a, b) => Number(a.ganho_perda_valor_vs_media) - Number(b.ganho_perda_valor_vs_media)).slice(0, 4);
-    const gpChart = [...gpTop, ...gpBottom.filter(r => !gpTop.includes(r))].slice(0, 10);
+    const gpTop = ganhoSorted.slice(0, 5);
+    const gpBottom = [...rows].sort((a, b) => Number(a.ganho_perda_valor_vs_media) - Number(b.ganho_perda_valor_vs_media)).slice(0, 3);
+    const gpChart = [...gpTop, ...gpBottom.filter(r => !gpTop.includes(r))].slice(0, 8);
     if (gpChart.length) {
+        const gpLabels = gpChart.map(r => r.talhao_codigo);
         setChart('chart-ganho-perda', {
             grid: GRIDS.horizontal,
             tooltip: {
                 trigger: 'axis',
-                formatter: p => `${p[0].name}: ${formatCurrencyCompact(p[0].value)}`
+                axisPointer: { type: 'shadow' },
+                formatter: p => {
+                    const idx = p[0].dataIndex;
+                    const row = gpChart[idx];
+                    return `<strong>${row.talhao_codigo}</strong> · ${row.cultura_nome}<br>
+                        Impacto: ${formatCurrencyCompact(p[0].value)}<br>
+                        Desvio prod.: ${formatPct(row.desvio_produtividade_pct)}`;
+                }
             },
-            xAxis: { type: 'value', axisLabel: { fontSize: 10, formatter: v => formatCurrencyCompact(v) } },
-            yAxis: { type: 'category', data: gpChart.map(r => r.talhao_codigo), axisLabel: { fontSize: 11 } },
+            xAxis: {
+                type: 'value',
+                axisLabel: { fontSize: 10, formatter: v => formatCurrencyCompact(v) }
+            },
+            yAxis: {
+                type: 'category',
+                data: gpLabels.map(l => truncLabel(l, 10)),
+                axisLabel: { fontSize: 11 }
+            },
             series: [{
                 type: 'bar',
-                barMaxWidth: 22,
+                barMaxWidth: 24,
                 data: gpChart.map(r => ({
                     value: Number(r.ganho_perda_valor_vs_media),
                     itemStyle: { color: r.ganho_perda_valor_vs_media >= 0 ? '#2d6a4f' : '#c1121f' }
                 }))
             }]
         });
-        bindTalhaoChart(charts['chart-ganho-perda'], gpChart.map(r => r.talhao_codigo), onDrill, false);
+        bindTalhaoChart(charts['chart-ganho-perda'], gpLabels, onDrill, false);
     }
 }
 
@@ -161,6 +191,7 @@ function bindTalhaoChart(chart, codes, onDrill, paretoMode) {
             return;
         }
         const code = params.name || codes[params.dataIndex];
-        if (code) onDrill?.('talhaoPerformance', { talhaoCodigo: code });
+        const full = codes.find(c => c === code || truncLabel(c, 10) === code) || code;
+        if (full) onDrill?.('talhaoPerformance', { talhaoCodigo: full });
     });
 }

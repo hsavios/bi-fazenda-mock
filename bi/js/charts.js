@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Builders ECharts — visualizações avançadas do cockpit.
  */
 import { formatCurrency, formatNumber, formatPct } from './api.js?v=5.5';
@@ -174,12 +174,17 @@ export function scatterBubbleOption(points) {
 }
 
 export function horizontalBarOption(labels, values, opts = {}) {
-    const { color = CHART_COLORS.primary, formatter, maxWidth = 22 } = opts;
+    const { color = CHART_COLORS.primary, formatter, maxWidth = 22, tooltipNames } = opts;
+    const fullNames = tooltipNames || labels;
     return {
         color: [color],
         tooltip: {
             trigger: 'axis',
-            formatter: p => `${p[0].name}: ${formatter ? formatter(p[0].value) : p[0].value}${DRILL_HINT}`
+            formatter: p => {
+                const idx = p[0].dataIndex;
+                const name = fullNames[idx] || p[0].name;
+                return `${name}: ${formatter ? formatter(p[0].value) : p[0].value}`;
+            }
         },
         grid: { left: 8, right: 20, top: 8, bottom: 8, containLabel: true },
         xAxis: { type: 'value', axisLabel: { fontSize: 10, formatter: opts.xFormatter } },

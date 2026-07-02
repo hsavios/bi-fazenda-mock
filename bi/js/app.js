@@ -5,13 +5,13 @@
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=5.5';
+} from './api.js?v=5.6';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
     buildStockPanelInsights,
     renderInsightCards
-} from './insights.js?v=5.5';
+} from './insights.js?v=5.6';
 import {
     buildDecisionQuestions,
     buildCommercialSummary,
@@ -19,13 +19,19 @@ import {
     renderDecisionCards,
     renderSelectedQuestionPanel,
     renderCommercialTable
-} from './decisionQuestions.js?v=5.5';
-import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.5';
-import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.5';
-import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.5';
-import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.5';
-import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.5.1';
-import { aggregateCashByMonth } from './cashFlow.js?v=5.5';
+} from './decisionQuestions.js?v=5.6';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.6';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.6';
+import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.6';
+import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.6';
+import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.6';
+import {
+    registerBiChart,
+    unregisterBiChart,
+    isChartNodeVisible,
+    scheduleChartResize
+} from './chartResize.js?v=5.6';
+import { aggregateCashByMonth } from './cashFlow.js?v=5.6';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -37,7 +43,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=5.5';
+} from './charts.js?v=5.6';
 import {
     initFilters,
     loadFilterState,
@@ -49,7 +55,7 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=5.5';
+} from './filters.js?v=5.6';
 
 const charts = {};
 const chartsReady = new Set();
@@ -111,8 +117,12 @@ function el(id) {
 function initChart(id) {
     const node = el(id);
     if (!node || typeof echarts === 'undefined') return null;
-    if (charts[id]) charts[id].dispose();
+    if (charts[id]) {
+        unregisterBiChart(charts[id]);
+        charts[id].dispose();
+    }
     charts[id] = echarts.init(node);
+    registerBiChart(charts[id]);
     return charts[id];
 }
 
@@ -120,7 +130,7 @@ function setChart(id, option) {
     const chart = initChart(id);
     if (chart) {
         chart.setOption(option, true);
-        requestAnimationFrame(() => chart.resize());
+        scheduleChartResize(resizeVisibleCharts);
     }
     return chart;
 }
@@ -140,9 +150,10 @@ function resizeVisibleCharts() {
     if (!activePanel) return;
     let count = 0;
     activePanel.querySelectorAll('.chart').forEach(node => {
+        if (!isChartNodeVisible(node)) return;
         const chart = charts[node.id];
         if (chart) {
-            chart.resize();
+            try { chart.resize(); } catch (_) { /* ignore */ }
             count += 1;
         }
     });
@@ -150,7 +161,7 @@ function resizeVisibleCharts() {
 }
 
 function resizeCharts() {
-    resizeVisibleCharts();
+    scheduleChartResize(resizeVisibleCharts);
 }
 
 function setupChartResizeObserver() {
@@ -163,7 +174,7 @@ function setupChartResizeObserver() {
 
 function observeChartContainers() {
     if (!chartResizeObserver) return;
-    document.querySelectorAll('.chart-body, .operations-chart-card, .operations-visual-scroll').forEach(el => {
+    document.querySelectorAll('.chart-body, .chart-card-body, .operations-chart-card, .operations-visual-panel, .operations-maquinas-viz-panel').forEach(el => {
         if (el.dataset.resizeObserved) return;
         el.dataset.resizeObserved = '1';
         chartResizeObserver.observe(el);
@@ -755,7 +766,7 @@ function renderOperacoesTab(drawChart = false) {
         subTab: selectedOperacoesSubTab,
         drawChart,
         filterContext: getFilterContextLabel(filterState),
-        onChartsReady: resizeVisibleCharts
+        onChartsReady: () => scheduleChartResize(resizeVisibleCharts)
     });
     observeChartContainers();
 }
@@ -977,22 +988,15 @@ async function loadDashboard() {
         initOperacoesSubtabs(tab => {
             selectedOperacoesSubTab = tab;
             const onOpTab = getCurrentTabId() === 'operacoes';
-            const needsCharts = tab === 'visualizacoes' || (tab === 'maquinas' && document.getElementById('field-maquinas-viz-accordion')?.open);
+            const maqOpen = document.getElementById('field-maquinas-viz-accordion')?.open;
+            const needsCharts = tab === 'visualizacoes' || (tab === 'maquinas' && maqOpen);
             renderOperacoesTab(needsCharts);
-            if (onOpTab) {
-                requestAnimationFrame(() => {
-                    resizeVisibleCharts();
-                    requestAnimationFrame(resizeVisibleCharts);
-                });
-            }
+            if (onOpTab) scheduleChartResize(resizeVisibleCharts);
         });
         initMaquinasVizAccordion(() => {
             if (getCurrentTabId() === 'operacoes' && selectedOperacoesSubTab === 'maquinas') {
                 renderOperacoesTab(true);
-                requestAnimationFrame(() => {
-                    resizeVisibleCharts();
-                    requestAnimationFrame(resizeVisibleCharts);
-                });
+                scheduleChartResize(resizeVisibleCharts);
             }
         });
         setupChartResizeObserver();
@@ -1014,6 +1018,6 @@ document.getElementById('btn-retry')?.addEventListener('click', () => {
 });
 
 window.addEventListener('resize', () => {
-    requestAnimationFrame(resizeVisibleCharts);
+    scheduleChartResize(resizeVisibleCharts);
 });
 document.addEventListener('DOMContentLoaded', loadDashboard);

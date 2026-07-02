@@ -6,11 +6,11 @@ import {
     buildFieldPerformanceInsights,
     buildFieldPerformanceKpis,
     renderFieldPerformanceTable
-} from './fieldPerformance.js?v=5.5.1';
-import { renderOperacoesVisualizacoes } from './operacoesVisualizacoes.js?v=5.5.1';
-import { renderOperacoesMaquinas, isMaquinasVizOpen } from './operacoesMaquinas.js?v=5.5.1';
-import { renderOperacoesApontamentos } from './operacoesApontamentos.js?v=5.5.1';
-import { renderInsightCards } from './insights.js?v=5.5.1';
+} from './fieldPerformance.js?v=5.6';
+import { renderOperacoesVisualizacoes } from './operacoesVisualizacoes.js?v=5.6';
+import { renderOperacoesMaquinas, isMaquinasVizOpen } from './operacoesMaquinas.js?v=5.6';
+import { renderOperacoesApontamentos } from './operacoesApontamentos.js?v=5.6';
+import { renderInsightCards } from './insights.js?v=5.6';
 
 const FIELD_MODES = ['talhoes', 'visualizacoes', 'maquinas', 'apontamentos'];
 
@@ -97,7 +97,6 @@ function drawOperacoesCharts({ subTab, drawChart, model, store, charts, setChart
         }
         requestAnimationFrame(() => {
             onChartsReady?.();
-            requestAnimationFrame(() => onChartsReady?.());
         });
     };
 

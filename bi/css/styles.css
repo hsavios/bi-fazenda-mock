@@ -2245,52 +2245,55 @@ th.cash-matrix--hot {
     overflow: hidden;
 }
 
-.operations-visual-scroll {
+/* Operações — painel e cards de gráficos */
+.operations-visual-panel,
+.operations-maquinas-viz-panel {
     flex: 1;
     min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    padding-right: 4px;
-    -webkit-overflow-scrolling: touch;
-}
-
-.operations-visual-scroll--nested {
-    flex: none;
-    overflow: visible;
-    padding: 0.65rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .operations-visual-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 14px;
-    height: auto;
-    min-height: min-content;
+    grid-auto-rows: minmax(320px, auto);
+    gap: 16px;
+    overflow: auto;
+    padding-right: 4px;
+    min-height: 0;
+    flex: 1;
     align-content: start;
 }
 
 @media (min-width: 900px) {
     .operations-visual-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-auto-rows: minmax(320px, auto);
+    }
+}
+
+@media (max-width: 1200px) {
+    .operations-visual-grid {
+        grid-template-columns: 1fr;
     }
 }
 
 .operations-visual-grid--compact {
-    grid-template-columns: 1fr;
-}
-
-@media (min-width: 900px) {
-    .operations-visual-grid--compact {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+    padding: 0.65rem;
+    max-height: 720px;
+    overflow-y: auto;
 }
 
 .operations-chart-card {
     display: flex;
     flex-direction: column;
+    min-height: 320px;
+    height: 100%;
     overflow: hidden;
-    padding: 0.5rem 0.55rem 0;
-    min-height: 0;
+    padding: 0;
 }
 
 .operations-chart-card::after {
@@ -2298,41 +2301,57 @@ th.cash-matrix--hot {
     display: none !important;
 }
 
-.operations-chart-card .chart-body {
-    flex: none;
+.operations-chart-card .chart-card-header {
+    padding: 14px 16px 6px;
+    flex: 0 0 auto;
+}
+
+.operations-chart-card .chart-card-header h3 {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--accent-dark);
+    margin: 0;
+    padding: 0;
+}
+
+.operations-chart-card .chart-card-header p {
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin: 0.15rem 0 0;
+    padding: 0;
+}
+
+.operations-chart-card .chart-card-body {
+    flex: 1 1 auto;
+    min-height: 220px;
+    padding: 0 10px;
     position: relative;
-    height: 260px;
-    min-height: 260px;
 }
 
-@media (min-width: 1600px) {
-    .operations-chart-card .chart-body {
-        height: 300px;
-        min-height: 300px;
-    }
-}
-
-.operations-chart-card .chart {
+.operations-chart-card .chart-card-body .chart {
     width: 100%;
-    height: 260px !important;
-    min-height: 260px !important;
-    flex: none;
+    height: 100%;
+    min-height: 220px;
 }
+
+.operations-chart-card .chart--sm { min-height: 260px; height: 260px; }
+.operations-chart-card .chart--md { min-height: 300px; height: 300px; }
+.operations-chart-card .chart--lg { min-height: 340px; height: 340px; }
+.operations-chart-card .chart--heatmap { min-height: 280px; height: 280px; }
 
 @media (min-width: 1600px) {
-    .operations-chart-card .chart {
-        height: 300px !important;
-        min-height: 300px !important;
-    }
+    .operations-chart-card .chart--md { min-height: 320px; height: 320px; }
+    .operations-chart-card .chart--lg { min-height: 360px; height: 360px; }
+    .operations-chart-card .chart--heatmap { min-height: 300px; height: 300px; }
 }
 
-.chart-card-footer {
-    flex-shrink: 0;
+.operations-chart-card .chart-card-footer {
+    flex: 0 0 auto;
+    padding: 6px 14px 10px;
     font-size: 11px;
     color: var(--muted);
-    padding: 6px 12px 10px;
-    border-top: 1px solid rgba(0, 0, 0, 0.06);
-    margin-top: 0.25rem;
+    border-top: 1px solid rgba(20, 40, 30, 0.06);
+    margin-top: 0;
 }
 
 .field-maquinas-wrap {
@@ -2383,11 +2402,6 @@ th.cash-matrix--hot {
 .field-maquinas-accordion[open] summary {
     border-bottom: 1px solid var(--border-light);
     background: linear-gradient(180deg, #f8fbf9 0%, #f4f8f5 100%);
-}
-
-.field-maquinas-accordion[open] .operations-visual-scroll--nested {
-    max-height: 680px;
-    overflow-y: auto;
 }
 
 .field-maquinas-shell { display: flex; flex-direction: column; }

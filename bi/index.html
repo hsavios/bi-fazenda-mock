@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=5.5.1">
+    <link rel="stylesheet" href="css/styles.css?v=5.6">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=5.5.1"></script>
+    <script type="module" src="js/app.js?v=5.6"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -391,36 +391,56 @@
                                     <h3 class="block-title">Visualizações da Safra</h3>
                                     <p class="chart-desc">Análises visuais de produtividade, custo e ganho/perda</p>
                                 </header>
-                                <div class="operations-visual-scroll">
+                                <div class="operations-visual-panel">
                                     <div class="operations-visual-grid">
                                         <div class="chart-card operations-chart-card">
-                                            <h3>Produtividade × Custo/ha</h3>
-                                            <p class="chart-desc">Bolha = resultado · cor = positivo/negativo</p>
-                                            <div class="chart-body"><div id="chart-scatter-prod-custo" class="chart"></div></div>
+                                            <div class="chart-card-header">
+                                                <h3>Produtividade × Custo/ha</h3>
+                                                <p>Bolha = resultado · cor = positivo/negativo</p>
+                                            </div>
+                                            <div class="chart-card-body">
+                                                <div id="chart-scatter-prod-custo" class="chart chart--lg"></div>
+                                            </div>
                                             <div class="chart-card-footer">Clique nos elementos para detalhar</div>
                                         </div>
                                         <div class="chart-card operations-chart-card">
-                                            <h3>Ganho/perda vs média da cultura</h3>
-                                            <p class="chart-desc">Impacto econômico estimado por produtividade</p>
-                                            <div class="chart-body"><div id="chart-ganho-perda" class="chart"></div></div>
+                                            <div class="chart-card-header">
+                                                <h3>Ganho/perda vs média da cultura</h3>
+                                                <p>Impacto econômico estimado por produtividade</p>
+                                            </div>
+                                            <div class="chart-card-body">
+                                                <div id="chart-ganho-perda" class="chart chart--md"></div>
+                                            </div>
                                             <div class="chart-card-footer">Clique nos elementos para detalhar</div>
                                         </div>
                                         <div class="chart-card operations-chart-card">
-                                            <h3>Pareto de custos por talhão</h3>
-                                            <p class="chart-desc">Top 8 · concentração acumulada</p>
-                                            <div class="chart-body"><div id="chart-pareto-talhao" class="chart"></div></div>
+                                            <div class="chart-card-header">
+                                                <h3>Pareto de custos por talhão</h3>
+                                                <p>Top 8 · concentração acumulada</p>
+                                            </div>
+                                            <div class="chart-card-body">
+                                                <div id="chart-pareto-talhao" class="chart chart--md"></div>
+                                            </div>
                                             <div class="chart-card-footer">Clique nos elementos para detalhar</div>
                                         </div>
                                         <div class="chart-card operations-chart-card">
-                                            <h3>Heatmap talhão × cultura</h3>
-                                            <p class="chart-desc">Intensidade de custo/ha operacional</p>
-                                            <div class="chart-body"><div id="chart-heatmap-talhao" class="chart"></div></div>
+                                            <div class="chart-card-header">
+                                                <h3>Heatmap talhão × cultura</h3>
+                                                <p>Intensidade de custo/ha operacional</p>
+                                            </div>
+                                            <div class="chart-card-body">
+                                                <div id="chart-heatmap-talhao" class="chart chart--heatmap"></div>
+                                            </div>
                                             <div class="chart-card-footer">Clique nos elementos para detalhar</div>
                                         </div>
                                         <div class="chart-card operations-chart-card">
-                                            <h3>Ranking de resultado por talhão</h3>
-                                            <p class="chart-desc">Top 8 talhões por resultado estimado</p>
-                                            <div class="chart-body"><div id="chart-ranking-talhao" class="chart"></div></div>
+                                            <div class="chart-card-header">
+                                                <h3>Ranking de resultado por talhão</h3>
+                                                <p>Top 8 talhões por resultado estimado</p>
+                                            </div>
+                                            <div class="chart-card-body">
+                                                <div id="chart-ranking-talhao" class="chart chart--md"></div>
+                                            </div>
                                             <div class="chart-card-footer">Clique nos elementos para detalhar</div>
                                         </div>
                                     </div>
@@ -437,16 +457,26 @@
                                 </div>
                                 <details class="field-maquinas-accordion" id="field-maquinas-viz-accordion">
                                     <summary>Ver visualizações de máquinas</summary>
-                                    <div class="operations-visual-scroll operations-visual-scroll--nested">
+                                    <div class="operations-maquinas-viz-panel">
                                         <div class="operations-visual-grid operations-visual-grid--compact">
                                             <div class="chart-card operations-chart-card">
-                                                <h3>Horas × Custo por máquina</h3>
-                                                <div class="chart-body"><div id="chart-maquinas-viz" class="chart"></div></div>
+                                                <div class="chart-card-header">
+                                                    <h3>Horas × Custo por máquina</h3>
+                                                    <p>Top 8 equipamentos da safra</p>
+                                                </div>
+                                                <div class="chart-card-body">
+                                                    <div id="chart-maquinas-viz" class="chart chart--lg"></div>
+                                                </div>
                                                 <div class="chart-card-footer">Clique nos elementos para detalhar</div>
                                             </div>
                                             <div class="chart-card operations-chart-card">
-                                                <h3>Ranking custo/hora</h3>
-                                                <div class="chart-body"><div id="chart-maquinas-custo-hora" class="chart"></div></div>
+                                                <div class="chart-card-header">
+                                                    <h3>Ranking custo/hora</h3>
+                                                    <p>Comparativo por equipamento</p>
+                                                </div>
+                                                <div class="chart-card-body">
+                                                    <div id="chart-maquinas-custo-hora" class="chart chart--md"></div>
+                                                </div>
                                                 <div class="chart-card-footer">Clique nos elementos para detalhar</div>
                                             </div>
                                         </div>
