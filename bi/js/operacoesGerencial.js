@@ -6,11 +6,29 @@ import {
     buildFieldPerformanceInsights,
     buildFieldPerformanceKpis,
     renderFieldPerformanceTable
-} from './fieldPerformance.js?v=5.5';
-import { renderOperacoesVisualizacoes } from './operacoesVisualizacoes.js?v=5.5';
-import { renderOperacoesMaquinas, isMaquinasVizOpen } from './operacoesMaquinas.js?v=5.5';
-import { renderOperacoesApontamentos } from './operacoesApontamentos.js?v=5.5';
-import { renderInsightCards } from './insights.js?v=5.5';
+} from './fieldPerformance.js?v=5.5.1';
+import { renderOperacoesVisualizacoes } from './operacoesVisualizacoes.js?v=5.5.1';
+import { renderOperacoesMaquinas, isMaquinasVizOpen } from './operacoesMaquinas.js?v=5.5.1';
+import { renderOperacoesApontamentos } from './operacoesApontamentos.js?v=5.5.1';
+import { renderInsightCards } from './insights.js?v=5.5.1';
+
+const FIELD_MODES = ['talhoes', 'visualizacoes', 'maquinas', 'apontamentos'];
+
+function applyFieldLayoutMode(subTab) {
+    const layout = document.querySelector('.operations-layout.field-premium');
+    if (!layout) return;
+    FIELD_MODES.forEach(mode => layout.classList.toggle(`field-mode-${mode}`, mode === subTab));
+}
+
+function applyFieldSubtabs(subTab) {
+    document.querySelectorAll('.field-segment').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.fieldSubtab === subTab);
+        btn.setAttribute('aria-selected', btn.dataset.fieldSubtab === subTab ? 'true' : 'false');
+    });
+    document.querySelectorAll('.field-subpanel').forEach(panel => {
+        panel.classList.toggle('hidden', panel.dataset.fieldSubpanel !== subTab);
+    });
+}
 
 function renderBreadcrumb(container, filterContext) {
     if (!container) return;
@@ -50,6 +68,42 @@ function renderKpis(container, kpis, onDrill) {
     });
 }
 
+function drawOperacoesCharts({ subTab, drawChart, model, store, charts, setChart, onDrill, onChartsReady }) {
+    if (!drawChart) return;
+
+    const shouldDrawViz = subTab === 'visualizacoes';
+    const shouldDrawMaq = subTab === 'maquinas' && isMaquinasVizOpen();
+    if (!shouldDrawViz && !shouldDrawMaq) return;
+
+    const paint = () => {
+        if (shouldDrawViz) {
+            renderOperacoesVisualizacoes({
+                model,
+                talhoes: store.talhoes,
+                charts,
+                setChart,
+                onDrill,
+                drawChart: true
+            });
+        }
+        if (shouldDrawMaq) {
+            renderOperacoesMaquinas({
+                maquinas: store.maquinas,
+                charts,
+                setChart,
+                onDrill,
+                drawChart: true
+            });
+        }
+        requestAnimationFrame(() => {
+            onChartsReady?.();
+            requestAnimationFrame(() => onChartsReady?.());
+        });
+    };
+
+    requestAnimationFrame(() => requestAnimationFrame(paint));
+}
+
 export function renderOperacoesGerencial({
     store,
     charts,
@@ -57,8 +111,12 @@ export function renderOperacoesGerencial({
     onDrill,
     subTab = 'talhoes',
     drawChart = false,
-    filterContext = ''
+    filterContext = '',
+    onChartsReady = null
 }) {
+    applyFieldSubtabs(subTab);
+    applyFieldLayoutMode(subTab);
+
     const model = buildTalhaoPerformanceModel(store.talhoes, store.produtividade);
 
     renderBreadcrumb(document.getElementById('field-filter-breadcrumb'), filterContext);
@@ -75,31 +133,25 @@ export function renderOperacoesGerencial({
         buildFieldPerformanceInsights(model)
     );
 
-    renderOperacoesVisualizacoes({
-        model,
-        talhoes: store.talhoes,
-        charts,
-        setChart,
-        onDrill,
-        drawChart: drawChart && subTab === 'visualizacoes'
-    });
-
     renderOperacoesMaquinas({
         maquinas: store.maquinas,
         charts,
         setChart,
         onDrill,
-        drawChart: drawChart && subTab === 'maquinas' && isMaquinasVizOpen()
+        drawChart: false
     });
 
     renderOperacoesApontamentos(document.getElementById('field-apontamentos-host'));
 
-    document.querySelectorAll('.field-segment').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.fieldSubtab === subTab);
-        btn.setAttribute('aria-selected', btn.dataset.fieldSubtab === subTab ? 'true' : 'false');
-    });
-    document.querySelectorAll('.field-subpanel').forEach(panel => {
-        panel.classList.toggle('hidden', panel.dataset.fieldSubpanel !== subTab);
+    drawOperacoesCharts({
+        subTab,
+        drawChart,
+        model,
+        store,
+        charts,
+        setChart,
+        onDrill,
+        onChartsReady
     });
 }
 

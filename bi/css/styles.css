@@ -732,7 +732,7 @@ body.filter-open { overflow: hidden; }
     padding: 0 0.1rem 0.2rem;
 }
 
-.chart-card:has(.chart)::after {
+.chart-card:not(.operations-chart-card):has(.chart)::after {
     content: 'Clique nos elementos para detalhar';
     display: block;
     font-size: 0.62rem;
@@ -2228,68 +2228,102 @@ th.cash-matrix--hot {
 .field-viz-head { flex-shrink: 0; }
 
 /* Operações — grid de visualizações */
+.field-premium.field-mode-visualizacoes #kpi-operacoes,
+.field-premium.field-mode-maquinas #kpi-operacoes,
+.field-premium.field-mode-apontamentos #kpi-operacoes {
+    display: none;
+}
+
+.field-premium.field-mode-visualizacoes .field-page-head-text .view-subtitle,
+.field-premium.field-mode-maquinas .field-page-head-text .view-subtitle {
+    display: none;
+}
+
+.field-subpanel[data-field-subpanel="visualizacoes"]:not(.hidden) {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .operations-visual-scroll {
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding-right: 4px;
+    -webkit-overflow-scrolling: touch;
 }
 
 .operations-visual-scroll--nested {
     flex: none;
-    max-height: none;
     overflow: visible;
-    padding: 0.5rem 0 0.25rem;
+    padding: 0.65rem;
 }
 
 .operations-visual-grid {
-    height: 100%;
-    min-height: 0;
     display: grid;
     grid-template-columns: 1fr;
-    grid-auto-rows: minmax(280px, auto);
     gap: 14px;
+    height: auto;
+    min-height: min-content;
+    align-content: start;
 }
 
 @media (min-width: 900px) {
     .operations-visual-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-auto-rows: minmax(280px, auto);
-    }
-}
-
-@media (min-width: 1600px) {
-    .operations-visual-grid {
-        grid-auto-rows: minmax(320px, auto);
     }
 }
 
 .operations-visual-grid--compact {
-    grid-auto-rows: minmax(280px, auto);
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+    .operations-visual-grid--compact {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 .operations-chart-card {
-    min-height: 280px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     padding: 0.5rem 0.55rem 0;
+    min-height: 0;
 }
 
 .operations-chart-card::after {
-    content: none;
-    display: none;
+    content: none !important;
+    display: none !important;
 }
 
 .operations-chart-card .chart-body {
-    flex: 1;
-    min-height: 220px;
+    flex: none;
+    position: relative;
+    height: 260px;
+    min-height: 260px;
+}
+
+@media (min-width: 1600px) {
+    .operations-chart-card .chart-body {
+        height: 300px;
+        min-height: 300px;
+    }
 }
 
 .operations-chart-card .chart {
-    flex: 1;
-    min-height: 220px;
-    height: 100%;
+    width: 100%;
+    height: 260px !important;
+    min-height: 260px !important;
+    flex: none;
+}
+
+@media (min-width: 1600px) {
+    .operations-chart-card .chart {
+        height: 300px !important;
+        min-height: 300px !important;
+    }
 }
 
 .chart-card-footer {
@@ -2351,8 +2385,9 @@ th.cash-matrix--hot {
     background: linear-gradient(180deg, #f8fbf9 0%, #f4f8f5 100%);
 }
 
-.field-maquinas-accordion .operations-visual-grid {
-    padding: 0.65rem;
+.field-maquinas-accordion[open] .operations-visual-scroll--nested {
+    max-height: 680px;
+    overflow-y: auto;
 }
 
 .field-maquinas-shell { display: flex; flex-direction: column; }

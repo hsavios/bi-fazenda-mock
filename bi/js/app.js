@@ -24,7 +24,7 @@ import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.5';
 import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.5';
 import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.5';
 import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.5';
-import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.5';
+import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.5.1';
 import { aggregateCashByMonth } from './cashFlow.js?v=5.5';
 import {
     CHART_COLORS,
@@ -118,7 +118,10 @@ function initChart(id) {
 
 function setChart(id, option) {
     const chart = initChart(id);
-    if (chart) chart.setOption(option, true);
+    if (chart) {
+        chart.setOption(option, true);
+        requestAnimationFrame(() => chart.resize());
+    }
     return chart;
 }
 
@@ -751,15 +754,10 @@ function renderOperacoesTab(drawChart = false) {
         onDrill: openDrill,
         subTab: selectedOperacoesSubTab,
         drawChart,
-        filterContext: getFilterContextLabel(filterState)
+        filterContext: getFilterContextLabel(filterState),
+        onChartsReady: resizeVisibleCharts
     });
     observeChartContainers();
-    if (drawChart) {
-        requestAnimationFrame(() => {
-            resizeVisibleCharts();
-            requestAnimationFrame(resizeVisibleCharts);
-        });
-    }
 }
 
 /* ─── Tab / load ─── */

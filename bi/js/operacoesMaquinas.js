@@ -6,8 +6,8 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.5';
-import { horizontalBarOption, comboBarLineOption } from './charts.js?v=5.5';
+} from './api.js?v=5.5.1';
+import { horizontalBarOption, comboBarLineOption } from './charts.js?v=5.5.1';
 
 const MAQ_GRID = { left: 56, right: 28, top: 36, bottom: 56, containLabel: true };
 const MAQ_HGRID = { left: 110, right: 32, top: 24, bottom: 40, containLabel: true };

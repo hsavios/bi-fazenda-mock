@@ -7,7 +7,7 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.5';
+} from './api.js?v=5.5.1';
 
 function rowKey(r) {
     return `${r.safra_codigo || ''}|${r.talhao_codigo}|${r.cultura_nome}`;
