@@ -5,13 +5,13 @@
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=5.0';
+} from './api.js?v=5.2';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
     buildStockPanelInsights,
     renderInsightCards
-} from './insights.js?v=5.0';
+} from './insights.js?v=5.2';
 import {
     buildDecisionQuestions,
     buildCommercialSummary,
@@ -23,10 +23,10 @@ import {
     renderCommercialTable,
     renderCashMatrix,
     renderCashMobilePanel
-} from './decisionQuestions.js?v=5.0';
-import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.0';
-import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.0';
-import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.0';
+} from './decisionQuestions.js?v=5.2';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.2';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.2';
+import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.2';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -38,7 +38,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=5.0';
+} from './charts.js?v=5.2';
 import {
     initFilters,
     loadFilterState,
@@ -50,7 +50,7 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=5.0';
+} from './filters.js?v=5.2';
 
 const charts = {};
 const chartsReady = new Set();
@@ -285,7 +285,7 @@ function openMachineDrilldown(equipamentoNome) {
 function registerStaticDrillCoverage() {
     registerDrillCoverage('culturas', 'culture-cards', 'culture', 'ok');
     registerDrillCoverage('estoques', 'ranking-insumos', 'stockItem', 'ok');
-    registerDrillCoverage('dre-gerencial', 'dre-hierarchy', 'dreGroup', 'ok');
+    registerDrillCoverage('dre-gerencial', 'dre-explorer', 'dreGroup', 'ok');
     registerDrillCoverage('dre-gerencial', 'dre-balancete', 'accountingAccount', 'ok');
     registerDrillCoverage('dre-gerencial', 'dre-cultura-comp', 'cultureDre', 'ok');
     registerDrillCoverage('comercializacao', 'comercial-table', 'commercialCulture', 'ok');
@@ -748,7 +748,8 @@ function renderDreGerencialTab(drawChart = false) {
         setChart,
         onDrill: (type, context) => openDrill(type, context),
         subTab: selectedDreSubTab,
-        drawChart
+        drawChart,
+        filterContext: getFilterContextLabel(filterState)
     });
 }
 

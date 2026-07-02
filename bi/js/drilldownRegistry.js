@@ -35,19 +35,19 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.0';
+} from './api.js?v=5.2';
 import {
     aggregateDreByCulture,
     buildCultureInsights,
     buildStockInsights,
     buildTalhaoInsight
-} from './insights.js?v=5.0';
+} from './insights.js?v=5.2';
 import {
     buildDecisionDrilldown,
     buildCommercialSummary,
     aggregateCashByMonth
-} from './decisionQuestions.js?v=5.0';
-import { openDrilldown } from './drilldown.js?v=5.0';
+} from './decisionQuestions.js?v=5.2';
+import { openDrilldown } from './drilldown.js?v=5.2';
 
 const COVERAGE = [];
 

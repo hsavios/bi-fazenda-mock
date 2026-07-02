@@ -1,15 +1,14 @@
 ﻿/**
- * DRE Gerencial Contábil — renderização, filtros locais e insights.
+ * DRE Gerencial Contábil — orquestração premium (explorer, KPIs, subtabs).
  */
 import {
     formatCurrency,
     formatCurrencyCompact,
-    formatNumber,
-    formatPct,
-    sumField
-} from './api.js?v=5.0';
-import { renderInsightCards } from './insights.js?v=5.0';
-import { openDrill } from './drilldownRegistry.js?v=5.0';
+    formatPct
+} from './api.js?v=5.2';
+import { renderInsightCards } from './insights.js?v=5.2';
+import { buildExplorerModel, renderDreExplorer, resetExplorerState } from './dreExplorer.js?v=5.2';
+import { renderPremiumBalancete, renderPremiumCultura } from './drePanels.js?v=5.2';
 
 const CONSOLIDADO = 'Consolidado';
 
@@ -71,42 +70,6 @@ function kpiFromResumo(lines) {
     };
 }
 
-function buildDreTree(contabilRows) {
-    const groups = new Map();
-    (contabilRows || []).forEach(r => {
-        const gKey = r.grupo_dre;
-        if (!groups.has(gKey)) {
-            groups.set(gKey, {
-                grupo: gKey,
-                ordem: r.ordem_grupo,
-                valor: 0,
-                children: new Map()
-            });
-        }
-        const g = groups.get(gKey);
-        g.valor += Number(r.valor || 0);
-        const sKey = r.subgrupo_dre || r.conta_nome;
-        if (!g.children.has(sKey)) {
-            g.children.set(sKey, {
-                label: sKey,
-                ordem: r.ordem_subgrupo,
-                valor: 0,
-                conta_codigo: r.conta_codigo,
-                grupo_dre: r.grupo_dre
-            });
-        }
-        const c = g.children.get(sKey);
-        c.valor += Number(r.valor || 0);
-        if (!c.conta_codigo) c.conta_codigo = r.conta_codigo;
-    });
-    return [...groups.values()]
-        .sort((a, b) => a.ordem - b.ordem)
-        .map(g => ({
-            ...g,
-            children: [...g.children.values()].sort((a, b) => a.ordem - b.ordem)
-        }));
-}
-
 export function buildDreContabilInsights(lines, culturaComp) {
     const get = name => lines.find(l => l.linha_dre === name)?.valor || 0;
     const receitaLiq = get('Receita líquida');
@@ -155,33 +118,36 @@ export function buildDreContabilInsights(lines, culturaComp) {
     return insights.slice(0, 4);
 }
 
-function statusClass(val) {
-    if (val >= 0) return 'status-pill--ok';
-    return 'status-pill--attention';
+function renderFilterBreadcrumb(container, filterContext) {
+    if (!container) return;
+    if (!filterContext) {
+        container.innerHTML = '<span class="dre-breadcrumb-item dre-breadcrumb-item--muted">Consolidado · Toda a fazenda</span>';
+        return;
+    }
+    container.innerHTML = `<span class="dre-breadcrumb-item">${filterContext.replace('Recorte atual: ', '')}</span>`;
 }
 
-function renderKpiRow(container, kpis, onDrill) {
+function renderPremiumKpis(container, kpis, onDrill) {
     if (!container) return;
     const items = [
-        { label: 'Receita líquida', value: formatCurrencyCompact(kpis.receitaLiq), drill: 'receita-liquida-contabil', tone: 'positive' },
-        { label: 'Margem bruta', value: formatCurrencyCompact(kpis.margemBruta), hint: formatPct(kpis.margemBrutaPct), drill: 'margem-bruta-contabil' },
+        { label: 'Receita líquida', value: formatCurrencyCompact(kpis.receitaLiq), drill: 'receita-liquida-contabil', tone: 'positive', icon: '↗' },
+        { label: 'Margem bruta', value: formatCurrencyCompact(kpis.margemBruta), hint: formatPct(kpis.margemBrutaPct), drill: 'margem-bruta-contabil', tone: 'default' },
         { label: 'EBITDA', value: formatCurrencyCompact(kpis.ebitda), drill: 'ebitda-contabil', tone: 'positive' },
         { label: 'Resultado líquido', value: formatCurrencyCompact(kpis.resLiq), hint: formatPct(kpis.margemLiqPct), drill: 'resultado-liquido-contabil', tone: kpis.resLiq >= 0 ? 'positive' : 'critical' },
-        { label: 'Margem líquida', value: formatPct(kpis.margemLiqPct), drill: 'margem-liquida-contabil' },
-        { label: 'Resultado / ha', value: kpis.resHa ? formatCurrencyCompact(kpis.resHa) : '—', drill: 'resultado-ha-contabil' },
-        { label: 'Resultado / sc', value: kpis.resSc ? formatCurrency(kpis.resSc) : '—', drill: 'resultado-sc-contabil' }
+        { label: 'Margem líquida', value: formatPct(kpis.margemLiqPct), drill: 'margem-liquida-contabil', tone: 'default' },
+        { label: 'R$/ha', value: kpis.resHa ? formatCurrencyCompact(kpis.resHa) : '—', drill: 'resultado-ha-contabil', tone: 'default' },
+        { label: 'R$/sc', value: kpis.resSc ? formatCurrency(kpis.resSc) : '—', drill: 'resultado-sc-contabil', tone: 'default' }
     ];
     container.innerHTML = items.map(it => `
-        <div class="kpi-card kpi-card--${it.tone || 'default'} kpi-card--clickable"
+        <div class="dre-kpi-card dre-kpi-card--${it.tone} dre-kpi-card--clickable"
              data-drill-kpi="${it.drill}" role="button" tabindex="0" aria-label="Detalhar ${it.label}">
-            <div class="kpi-label">${it.label}</div>
-            <div class="kpi-value">${it.value}</div>
-            ${it.hint ? `<div class="kpi-hint">${it.hint}</div>` : ''}
-            <span class="kpi-drill-hint" aria-hidden="true">Ver detalhe ↗</span>
+            <span class="dre-kpi-label">${it.label}</span>
+            <span class="dre-kpi-value">${it.value}</span>
+            ${it.hint ? `<span class="dre-kpi-hint">${it.hint}</span>` : ''}
         </div>
     `).join('');
     container.querySelectorAll('[data-drill-kpi]').forEach(node => {
-        const open = () => onDrill?.('accountingKpi', { kpiId: node.dataset.drillKpi, lines: kpis });
+        const open = () => onDrill?.('accountingKpi', { kpiId: node.dataset.drillKpi });
         node.addEventListener('click', open);
         node.addEventListener('keydown', e => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
@@ -192,26 +158,16 @@ function renderKpiRow(container, kpis, onDrill) {
 function renderWaterfall(container, lines, onDrill) {
     if (!container || typeof echarts === 'undefined') return;
     const pick = names => names.reduce((s, n) => s + (lines.find(l => l.linha_dre === n)?.valor || 0), 0);
-    const receita = pick(['Receita bruta']);
-    const ded = pick(['Deduções']);
-    const custVar = pick(['Custos variáveis']);
-    const custFix = pick(['Custos fixos']);
-    const desp = pick(['Despesas comerciais', 'Despesas administrativas']);
-    const dep = pick(['Depreciação/amortização']);
-    const fin = pick(['Resultado financeiro']);
-    const trib = pick(['Tributos']);
-    const res = pick(['Resultado líquido gerencial']);
-
     const steps = [
-        { label: 'Receita bruta', value: receita, type: 'add' },
-        { label: 'Deduções', value: ded, type: 'subtract' },
-        { label: 'Custos var.', value: custVar, type: 'subtract' },
-        { label: 'Custos fixos', value: custFix, type: 'subtract' },
-        { label: 'Despesas', value: desp, type: 'subtract' },
-        { label: 'Depreciação', value: dep, type: 'subtract' },
-        { label: 'Financeiro', value: fin, type: fin >= 0 ? 'add' : 'subtract' },
-        { label: 'Tributos', value: trib, type: 'subtract' },
-        { label: 'Resultado líquido', value: res, type: 'total' }
+        { label: 'Receita bruta', value: pick(['Receita bruta']) },
+        { label: 'Deduções', value: pick(['Deduções']) },
+        { label: 'Custos var.', value: pick(['Custos variáveis']) },
+        { label: 'Custos fixos', value: pick(['Custos fixos']) },
+        { label: 'Despesas', value: pick(['Despesas comerciais', 'Despesas administrativas']) },
+        { label: 'Depreciação', value: pick(['Depreciação/amortização']) },
+        { label: 'Financeiro', value: pick(['Resultado financeiro']) },
+        { label: 'Tributos', value: pick(['Tributos']) },
+        { label: 'Resultado líquido', value: pick(['Resultado líquido gerencial']) }
     ];
 
     const chart = echarts.getInstanceByDom(container) || echarts.init(container);
@@ -220,14 +176,18 @@ function renderWaterfall(container, lines, onDrill) {
             trigger: 'item',
             formatter: p => `${p.name}<br>${formatCurrency(p.value)}<br><span style="opacity:.7;font-size:10px">Clique para detalhar</span>`
         },
-        grid: { left: 48, right: 16, top: 20, bottom: 36 },
-        xAxis: { type: 'category', data: steps.map(s => s.label), axisLabel: { fontSize: 9, rotate: 25 } },
-        yAxis: { type: 'value', axisLabel: { fontSize: 10, formatter: v => formatCurrencyCompact(v) } },
+        grid: { left: 48, right: 16, top: 16, bottom: 40 },
+        xAxis: { type: 'category', data: steps.map(s => s.label), axisLabel: { fontSize: 9, rotate: 22, color: '#5a6b5e' } },
+        yAxis: { type: 'value', axisLabel: { fontSize: 10, formatter: v => formatCurrencyCompact(v), color: '#5a6b5e' }, splitLine: { lineStyle: { color: '#e8efe9' } } },
         series: [{
             type: 'bar',
+            barMaxWidth: 36,
             data: steps.map(s => ({
                 value: Math.abs(s.value),
-                itemStyle: { color: s.value >= 0 ? '#40916c' : '#c1121f' },
+                itemStyle: {
+                    color: s.value >= 0 ? '#2d6a4f' : '#c1121f',
+                    borderRadius: [4, 4, 0, 0]
+                },
                 raw: s.value,
                 label: s.label
             }))
@@ -240,131 +200,6 @@ function renderWaterfall(container, lines, onDrill) {
     return chart;
 }
 
-function renderHierarchy(container, tree, receitaLiq, onDrill) {
-    if (!container) return;
-    const pct = v => receitaLiq ? formatPct((v / receitaLiq) * 100) : '—';
-    const rows = [];
-    tree.forEach(g => {
-        rows.push(`
-            <tr class="dre-tree-group drill-row-clickable" data-dre-group="${g.grupo}" role="button" tabindex="0">
-                <td class="cell-name"><strong>${g.grupo}</strong></td>
-                <td>${formatCurrencyCompact(g.valor)}</td>
-                <td>${pct(g.valor)}</td>
-                <td>—</td>
-                <td>—</td>
-                <td><span class="status-pill ${statusClass(g.valor)}">${g.valor >= 0 ? 'Positivo' : 'Atenção'}</span></td>
-                <td class="cell-actions"><span class="row-drill-hint">Ver detalhe</span></td>
-            </tr>
-        `);
-        g.children.forEach(c => {
-            rows.push(`
-                <tr class="dre-tree-child drill-row-clickable" data-dre-account="${c.conta_codigo}" data-dre-group="${g.grupo}" role="button" tabindex="0">
-                    <td class="cell-name dre-indent">${c.label}</td>
-                    <td>${formatCurrencyCompact(c.valor)}</td>
-                    <td>${pct(c.valor)}</td>
-                    <td>—</td>
-                    <td>—</td>
-                    <td></td>
-                    <td></td>
-                </tr>
-            `);
-        });
-    });
-    container.innerHTML = `
-        <table class="compact-table dre-hierarchy-table">
-            <thead>
-                <tr>
-                    <th>Grupo / Conta</th>
-                    <th>Valor</th>
-                    <th>% Rec. Líq.</th>
-                    <th>R$/ha</th>
-                    <th>R$/sc</th>
-                    <th>Status</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>${rows.join('')}</tbody>
-        </table>
-    `;
-    container.querySelectorAll('[data-dre-group]').forEach(row => {
-        const open = () => onDrill?.('dreGroup', { grupo: row.dataset.dreGroup, conta: row.dataset.dreAccount });
-        row.addEventListener('click', open);
-        row.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
-        });
-    });
-}
-
-function renderCulturaComp(container, rows, onDrill) {
-    if (!container) return;
-    const sorted = [...rows].sort((a, b) => Number(b.receita_liquida) - Number(a.receita_liquida));
-    container.innerHTML = `
-        <table class="compact-table">
-            <thead>
-                <tr>
-                    <th>Cultura</th>
-                    <th>Rec. líquida</th>
-                    <th>Margem bruta</th>
-                    <th>Resultado líq.</th>
-                    <th>Margem %</th>
-                    <th>R$/ha</th>
-                    <th>R$/sc</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${sorted.map(r => `
-                    <tr class="drill-row-clickable" data-dre-cultura="${r.cultura_nome}" role="button" tabindex="0">
-                        <td class="cell-name">${r.cultura_nome}</td>
-                        <td>${formatCurrencyCompact(r.receita_liquida)}</td>
-                        <td>${formatCurrencyCompact(r.margem_bruta)}</td>
-                        <td>${formatCurrencyCompact(r.resultado_liquido)}</td>
-                        <td>${formatPct(r.margem_liquida_pct)}</td>
-                        <td>${r.resultado_ha ? formatCurrencyCompact(r.resultado_ha) : '—'}</td>
-                        <td>${r.resultado_sc ? formatCurrency(r.resultado_sc) : '—'}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-    container.querySelectorAll('[data-dre-cultura]').forEach(row => {
-        const open = () => onDrill?.('cultureDre', { cultura: row.dataset.dreCultura });
-        row.addEventListener('click', open);
-    });
-}
-
-function renderBalancete(container, rows, onDrill) {
-    if (!container) return;
-    const sorted = [...rows].sort((a, b) => String(a.conta_codigo).localeCompare(String(b.conta_codigo)));
-    container.innerHTML = `
-        <table class="compact-table">
-            <thead>
-                <tr>
-                    <th>Conta</th>
-                    <th>Débitos</th>
-                    <th>Créditos</th>
-                    <th>Saldo final</th>
-                    <th>Grupo DRE</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${sorted.map(r => `
-                    <tr class="drill-row-clickable" data-bal-conta="${r.conta_codigo}" role="button" tabindex="0">
-                        <td class="cell-name">${r.conta_codigo} · ${r.conta_nome}</td>
-                        <td>${formatCurrencyCompact(r.debitos)}</td>
-                        <td>${formatCurrencyCompact(r.creditos)}</td>
-                        <td>${formatCurrencyCompact(r.saldo_final)}</td>
-                        <td>${r.grupo_dre || '—'}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-    container.querySelectorAll('[data-bal-conta]').forEach(row => {
-        const open = () => onDrill?.('accountingAccount', { conta: row.dataset.balConta });
-        row.addEventListener('click', open);
-    });
-}
-
 export function renderDreGerencial({
     store,
     filterState,
@@ -372,7 +207,8 @@ export function renderDreGerencial({
     setChart,
     onDrill,
     subTab = 'dre',
-    drawChart = false
+    drawChart = false,
+    filterContext = ''
 }) {
     const data = filterDreData(store, filterState);
     const lines = aggregateResumo(data.dreResumo, CONSOLIDADO);
@@ -384,20 +220,32 @@ export function renderDreGerencial({
         kpis.resSc = Number(k.resultado_por_sc || 0);
     }
 
-    renderKpiRow(document.getElementById('kpi-dre-gerencial'), kpis, onDrill);
+    renderFilterBreadcrumb(document.getElementById('dre-filter-breadcrumb'), filterContext);
+    renderPremiumKpis(document.getElementById('kpi-dre-gerencial'), kpis, onDrill);
     renderInsightCards(document.getElementById('insights-dre-gerencial'), buildDreContabilInsights(lines, data.dreCulturaComp));
 
-    const tree = buildDreTree(data.dreContabil);
-    renderHierarchy(document.getElementById('dre-hierarchy'), tree, kpis.receitaLiq, onDrill);
-    renderCulturaComp(document.getElementById('dre-cultura-comp'), data.dreCulturaComp, onDrill);
-    renderBalancete(document.getElementById('dre-balancete'), data.balanceteGerencial, onDrill);
+    const explorerModel = buildExplorerModel(lines, data.dreContabil);
+    const explorerCtx = {
+        receitaLiq: kpis.receitaLiq,
+        data,
+        filterContext,
+        onDrill
+    };
+    renderDreExplorer(document.getElementById('dre-explorer'), explorerModel, explorerCtx);
 
-    document.querySelectorAll('.dre-subtab').forEach(btn => {
+    renderPremiumBalancete(document.getElementById('dre-balancete'), data.balanceteGerencial, onDrill);
+    renderPremiumCultura(document.getElementById('dre-cultura-comp'), data.dreCulturaComp, onDrill);
+
+    document.querySelectorAll('.dre-segment').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.dreSubtab === subTab);
+        btn.setAttribute('aria-selected', btn.dataset.dreSubtab === subTab ? 'true' : 'false');
     });
     document.querySelectorAll('.dre-subpanel').forEach(panel => {
         panel.classList.toggle('hidden', panel.dataset.dreSubpanel !== subTab);
     });
+
+    const skeleton = document.getElementById('dre-explorer-skeleton');
+    if (skeleton) skeleton.classList.add('hidden');
 
     if (!drawChart) return;
     const wf = document.getElementById('chart-dre-waterfall');
@@ -408,9 +256,16 @@ export function renderDreGerencial({
 }
 
 export function initDreSubtabs(onChange) {
-    document.querySelectorAll('.dre-subtab').forEach(btn => {
+    document.querySelectorAll('.dre-segment').forEach(btn => {
         btn.addEventListener('click', () => onChange(btn.dataset.dreSubtab));
     });
 }
 
-export { aggregateResumo, CONSOLIDADO };
+export function showDreLoading() {
+    const sk = document.getElementById('dre-explorer-skeleton');
+    const ex = document.getElementById('dre-explorer');
+    if (sk) sk.classList.remove('hidden');
+    if (ex) ex.innerHTML = '';
+}
+
+export { aggregateResumo, CONSOLIDADO, resetExplorerState };
