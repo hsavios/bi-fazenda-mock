@@ -7,8 +7,8 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=4.3';
-import { aggregateDreByCulture } from './insights.js?v=4.3';
+} from './api.js?v=4.4';
+import { aggregateDreByCulture } from './insights.js?v=4.4';
 
 const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -29,6 +29,50 @@ function bottomBy(rows, field) {
     return rows.reduce((worst, r) =>
         Number(r[field] || 0) < Number(worst[field] || 0) ? r : worst
     );
+}
+
+function statusLabel(tone) {
+    if (tone === 'positive') return 'Positivo';
+    if (tone === 'critical') return 'Crítico';
+    if (tone === 'warn') return 'Atenção';
+    return 'Info';
+}
+
+function statusPillClass(tone) {
+    if (tone === 'positive') return 'ok';
+    if (tone === 'critical') return 'critical';
+    if (tone === 'warn') return 'attention';
+    return 'ok';
+}
+
+const DECISION_ICONS = {
+    revenue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    margin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22V12"/><path d="M12 12C12 8 8 4 4 4c0 4 4 8 8 8z"/></svg>',
+    talhao: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>',
+    cost: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+    machine: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4"/></svg>',
+    commercial: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>',
+    cash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    default: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+};
+
+function iconForCard(card) {
+    const id = card.id || '';
+    if (id.includes('receita') || id.includes('comercial-culture')) return DECISION_ICONS.revenue;
+    if (id.includes('margin') || id.includes('why-culture')) return DECISION_ICONS.margin;
+    if (id.includes('talhao') || id.includes('margin-leak')) return DECISION_ICONS.talhao;
+    if (id.includes('cost')) return DECISION_ICONS.cost;
+    if (id.includes('resource') || id.includes('machine')) return DECISION_ICONS.machine;
+    if (id.includes('volume') || id.includes('pendente')) return DECISION_ICONS.commercial;
+    if (id.includes('cash')) return DECISION_ICONS.cash;
+    if (id.includes('attention') || id.includes('gestor')) return DECISION_ICONS.alert;
+    return DECISION_ICONS.default;
+}
+
+function parseEvidenceLines(evidence) {
+    if (!evidence) return [];
+    return evidence.split('·').map(s => s.trim()).filter(Boolean);
 }
 
 function toneToStatus(tone) {
@@ -455,19 +499,92 @@ export function buildDecisionDrilldown(card, store) {
     };
 }
 
-export function renderDecisionCards(container, cards) {
+export function renderDecisionCards(container, cards, selectedId = null) {
     if (!container) return;
     container.innerHTML = cards.map(c => `
-        <article class="decision-card decision-card--${c.tone}" data-decision-id="${c.id}">
-            <div class="decision-card-head">
-                <h3 class="decision-question">${c.question}</h3>
-                <span class="status-pill status-pill--${c.tone === 'positive' ? 'ok' : c.tone === 'critical' ? 'critical' : c.tone === 'warn' ? 'attention' : 'ok'}">${c.tone === 'positive' ? 'Positivo' : c.tone === 'critical' ? 'Crítico' : c.tone === 'warn' ? 'Atenção' : 'Info'}</span>
+        <article class="decision-card decision-card--${c.tone}${c.id === selectedId ? ' active' : ''}" data-decision-id="${c.id}" role="button" tabindex="0">
+            <div class="decision-card-top">
+                <span class="decision-card-icon" aria-hidden="true">${iconForCard(c)}</span>
+                <div class="decision-card-head">
+                    <h3 class="decision-question">${c.question}</h3>
+                    <span class="status-pill status-pill--${statusPillClass(c.tone)}">${statusLabel(c.tone)}</span>
+                </div>
             </div>
             <p class="decision-answer">${c.answer}</p>
             ${c.evidence ? `<p class="decision-evidence">${c.evidence}</p>` : ''}
-            <button type="button" class="btn-decision" data-decision-id="${c.id}">${c.actionLabel}</button>
+            <span class="decision-card-cta">Ver análise →</span>
         </article>
     `).join('');
+}
+
+export function renderSelectedQuestionPanel(container, card, store) {
+    if (!container) return;
+    if (!card) {
+        container.innerHTML = '<p class="insight-empty">Selecione uma pergunta para ver a análise.</p>';
+        return;
+    }
+    const drill = buildDecisionDrilldown(card, store);
+    const st = toneToStatus(card.tone);
+    const evidenceLines = drill?.metrics?.length
+        ? drill.metrics.map(m => `<li><strong>${m.label}:</strong> ${m.value}</li>`).join('')
+        : parseEvidenceLines(card.evidence).map(line => `<li>${line}</li>`).join('');
+    const interpretation = drill?.insight?.text || card.answer;
+    const nextAction = drill?.nextAction || 'Aprofundar análise nas abas relacionadas do cockpit.';
+
+    container.innerHTML = `
+        <p class="selected-panel-heading">Análise selecionada</p>
+        <p class="selected-panel-question">${card.question}</p>
+        <span class="status-pill status-pill--${st.status}">${st.label}</span>
+        <div class="selected-panel-section">
+            <h4>Resposta executiva</h4>
+            <p>${card.answer}</p>
+        </div>
+        ${evidenceLines ? `
+        <div class="selected-panel-section">
+            <h4>Evidências</h4>
+            <ul class="selected-panel-evidence">${evidenceLines}</ul>
+        </div>` : ''}
+        <div class="selected-panel-section">
+            <h4>Interpretação</h4>
+            <p class="selected-panel-interpretation">${interpretation}</p>
+        </div>
+        <div class="selected-panel-section">
+            <h4>Próxima ação sugerida</h4>
+            <p class="selected-panel-action">${nextAction}</p>
+        </div>
+        <button type="button" class="btn-open-drill" data-open-drill="${card.id}">Abrir análise completa</button>
+    `;
+}
+
+export function renderCommercialRanking(container, comercialRows, onCultureClick) {
+    if (!container) return;
+    const rows = [...(comercialRows || [])]
+        .map(r => ({
+            ...r,
+            volume_pendente_sc: Math.max(Number(r.volume_contratado_sc || 0) - Number(r.volume_entregue_sc || 0), 0)
+        }))
+        .filter(r => r.volume_pendente_sc > 0)
+        .sort((a, b) => b.volume_pendente_sc - a.volume_pendente_sc)
+        .slice(0, 5);
+
+    if (!rows.length) {
+        container.innerHTML = '<p class="insight-empty">Nenhum saldo pendente de entrega.</p>';
+        return;
+    }
+
+    container.innerHTML = rows.map(r => `
+        <div class="comercial-rank-row" data-culture="${r.cultura_nome}">
+            <div>
+                <div class="comercial-rank-name">${r.cultura_nome}</div>
+                <div class="comercial-rank-meta">${formatPct(r.pct_entregue)} entregue · ${formatNumber(r.volume_contratado_sc, 0)} sc contratadas</div>
+            </div>
+            <span class="comercial-rank-value">${formatNumber(r.volume_pendente_sc, 0)} sc</span>
+        </div>
+    `).join('');
+
+    container.querySelectorAll('[data-culture]').forEach(row => {
+        row.addEventListener('click', () => onCultureClick?.(row.dataset.culture));
+    });
 }
 
 export function renderCashMatrix(container, fluxoRows, onMonthClick) {
@@ -511,7 +628,6 @@ export function renderCashMatrix(container, fluxoRows, onMonthClick) {
                 </tr>
             </tbody>
         </table>
-        <p class="cash-matrix-note">Clique em um mês para detalhar pressão de caixa.</p>
     `;
 
     container.querySelectorAll('thead th').forEach((th, i) => {

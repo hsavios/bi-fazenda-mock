@@ -5,7 +5,7 @@ import {
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=4.3';
+} from './api.js?v=4.4';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
@@ -15,15 +15,17 @@ import {
     buildTalhaoInsight,
     buildFinancialInsight,
     renderInsightCards
-} from './insights.js?v=4.3';
+} from './insights.js?v=4.4';
 import {
     buildDecisionQuestions,
     buildDecisionDrilldown,
     buildCommercialSummary,
     renderDecisionCards,
+    renderSelectedQuestionPanel,
+    renderCommercialRanking,
     renderCashMatrix
-} from './decisionQuestions.js?v=4.3';
-import { initDrilldown, openDrilldown } from './drilldown.js?v=4.3';
+} from './decisionQuestions.js?v=4.4';
+import { initDrilldown, openDrilldown } from './drilldown.js?v=4.4';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -35,12 +37,13 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=4.3';
+} from './charts.js?v=4.4';
 
 const charts = {};
 const chartsReady = new Set();
 let chartResizeObserver = null;
 let decisionCards = [];
+let selectedDecisionId = null;
 const DEBUG_BI = location.hostname === 'localhost' || location.search.includes('debug=1');
 const TABS = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'operacoes', 'perguntas', 'sobre'];
 const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
@@ -326,6 +329,19 @@ function openDecisionById(id) {
     if (drill) openDrilldown(drill);
 }
 
+function openCommercialCultureDrilldown(cultura) {
+    const card = {
+        id: `commercial-${cultura}`,
+        question: `Como está a comercialização de ${cultura}?`,
+        answer: 'Análise agregada por cultura na safra demonstrativa.',
+        tone: 'info',
+        drillType: 'commercialCulture',
+        payload: { cultura }
+    };
+    const drill = buildDecisionDrilldown(card, store);
+    if (drill) openDrilldown(drill);
+}
+
 function openCashMonthDrilldown(month) {
     const card = {
         id: `cash-${month.monthKey}`,
@@ -339,31 +355,74 @@ function openCashMonthDrilldown(month) {
     if (drill) openDrilldown(drill);
 }
 
+function selectDecision(id) {
+    if (!decisionCards.find(c => c.id === id)) return;
+    selectedDecisionId = id;
+    renderDecisionCards(el('decision-cards'), decisionCards, selectedDecisionId);
+    renderSelectedQuestionPanel(
+        el('selected-question-panel'),
+        decisionCards.find(c => c.id === id),
+        store
+    );
+}
+
 function bindDecisionClicks() {
-    document.getElementById('decision-cards')?.addEventListener('click', e => {
-        const btn = e.target.closest('[data-decision-id]');
-        const id = btn?.dataset.decisionId;
-        if (id) openDecisionById(id);
+    const grid = document.getElementById('decision-cards');
+    grid?.addEventListener('click', e => {
+        const card = e.target.closest('[data-decision-id]');
+        if (!card) return;
+        selectDecision(card.dataset.decisionId);
+    });
+    grid?.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const card = e.target.closest('[data-decision-id]');
+        if (!card) return;
+        e.preventDefault();
+        selectDecision(card.dataset.decisionId);
+    });
+
+    document.getElementById('selected-question-panel')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-open-drill]');
+        if (btn) openDecisionById(btn.dataset.openDrill);
+    });
+}
+
+function setupQuestionsSubTabs() {
+    const root = document.querySelector('.questions-bottom');
+    if (!root) return;
+    const tabs = root.querySelectorAll('.sub-tab');
+    const panels = root.querySelectorAll('.sub-tab-panel');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const id = tab.dataset.subtab;
+            tabs.forEach(t => {
+                const active = t === tab;
+                t.classList.toggle('active', active);
+                t.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+            panels.forEach(p => {
+                p.classList.toggle('active', p.dataset.subpanel === id);
+            });
+            if (id === 'comercial') {
+                requestAnimationFrame(() => charts['chart-comercial-stack']?.resize());
+            }
+        });
     });
 }
 
 function renderPerguntas(drawChart = false) {
     decisionCards = buildDecisionQuestions(store);
-    renderDecisionCards(el('decision-cards'), decisionCards);
+    if (!selectedDecisionId || !decisionCards.find(c => c.id === selectedDecisionId)) {
+        selectedDecisionId = decisionCards[0]?.id || null;
+    }
 
-    const alerts = decisionCards
-        .filter(c => c.tone === 'warn' || c.tone === 'critical')
-        .slice(0, 5)
-        .map(c => ({
-            title: c.question.length > 48 ? c.question.slice(0, 48) + '…' : c.question,
-            text: c.answer,
-            tone: c.tone
-        }));
-    renderInsightCards(el('decision-alerts'), alerts.length ? alerts : [{
-        title: 'Situação geral',
-        text: 'Nenhum alerta crítico identificado nas regras atuais. Manter rotina de acompanhamento.',
-        tone: 'positive'
-    }]);
+    renderDecisionCards(el('decision-cards'), decisionCards, selectedDecisionId);
+    renderSelectedQuestionPanel(
+        el('selected-question-panel'),
+        decisionCards.find(c => c.id === selectedDecisionId),
+        store
+    );
 
     const com = buildCommercialSummary(store.comercial || []);
     const pctEntregue = com.totalContratado
@@ -377,6 +436,7 @@ function renderPerguntas(drawChart = false) {
         { label: '% entregue', value: formatPct(pctEntregue), hint: com.topPendente ? `Maior saldo: ${com.topPendente.cultura_nome}` : '' }
     ]);
 
+    renderCommercialRanking(el('comercial-ranking'), store.comercial, openCommercialCultureDrilldown);
     renderCashMatrix(el('cash-matrix'), store.fluxo, openCashMonthDrilldown);
 
     if (!drawChart) return;
@@ -388,6 +448,10 @@ function renderPerguntas(drawChart = false) {
             { name: 'Entregue', data: cats.map(n => rows.find(r => r.cultura_nome === n)?.volume_entregue_sc || 0) },
             { name: 'Saldo a entregar', data: cats.map(n => rows.find(r => r.cultura_nome === n)?.volume_pendente_sc || 0) }
         ]));
+        charts['chart-comercial-stack']?.off('click');
+        charts['chart-comercial-stack']?.on('click', params => {
+            if (params.name) openCommercialCultureDrilldown(params.name);
+        });
     }
 }
 
@@ -879,6 +943,7 @@ async function loadDashboard() {
         });
         bindDrilldownClicks();
         bindDecisionClicks();
+        setupQuestionsSubTabs();
         setupChartResizeObserver();
         setupTabs();
         refreshChartsForTab('visao-geral');

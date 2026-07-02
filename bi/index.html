@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=4.3">
+    <link rel="stylesheet" href="css/styles.css?v=4.4">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=4.3"></script>
+    <script type="module" src="js/app.js?v=4.4"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -215,25 +215,37 @@
                     <div class="questions-layout">
                         <header class="view-head view-head--compact">
                             <h2>Perguntas do Gestor</h2>
-                            <p class="view-subtitle">Respostas automáticas a partir dos dados operacionais e financeiros</p>
+                            <p class="view-subtitle">Centro de decisão — selecione uma pergunta para analisar</p>
                         </header>
-                        <div class="questions-body">
-                            <div class="questions-cards-scroll" id="decision-cards"></div>
-                            <aside class="questions-side">
-                                <h3 class="block-title">Resumo executivo</h3>
-                                <div id="decision-alerts" class="insights-list insights-list--compact"></div>
-                                <h3 class="block-title">Comercialização</h3>
-                                <p class="comercial-disclaimer">Visão agregada por cultura. Contrato individual na próxima camada de views.</p>
-                                <div class="kpi-row kpi-row--4 kpi-row--compact" id="kpi-comercial"></div>
-                                <div class="chart-card chart-card--sm">
-                                    <h3>Contratado × entregue × saldo</h3>
-                                    <div class="chart-body"><div id="chart-comercial-stack" class="chart"></div></div>
-                                </div>
-                            </aside>
+                        <div class="questions-main">
+                            <div class="decision-card-grid" id="decision-cards"></div>
+                            <aside class="selected-question-panel" id="selected-question-panel" aria-live="polite"></aside>
                         </div>
-                        <div class="questions-bottom panel-scroll">
-                            <h3 class="block-title">Matriz de caixa por mês</h3>
-                            <div id="cash-matrix" class="cash-matrix-wrap"></div>
+                        <div class="questions-bottom">
+                            <div class="sub-tabs" role="tablist" aria-label="Dados complementares">
+                                <button type="button" class="sub-tab active" data-subtab="comercial" role="tab" aria-selected="true">Comercialização</button>
+                                <button type="button" class="sub-tab" data-subtab="caixa" role="tab" aria-selected="false">Caixa</button>
+                            </div>
+                            <div class="sub-tab-panels">
+                                <div class="sub-tab-panel active" data-subpanel="comercial" role="tabpanel">
+                                    <p class="comercial-disclaimer">Comercialização agregada por cultura. Contratos individuais exigem a próxima camada analítica.</p>
+                                    <div class="comercial-panel-grid">
+                                        <div class="kpi-row kpi-row--4 kpi-row--compact" id="kpi-comercial"></div>
+                                        <div class="chart-card chart-card--comercial">
+                                            <h3>Entregue × saldo a entregar</h3>
+                                            <div class="chart-body"><div id="chart-comercial-stack" class="chart"></div></div>
+                                        </div>
+                                        <div class="comercial-ranking-wrap">
+                                            <h3 class="block-title">Saldo a entregar por cultura</h3>
+                                            <div id="comercial-ranking" class="comercial-ranking"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="sub-tab-panel" data-subpanel="caixa" role="tabpanel">
+                                    <div class="cash-matrix-wrapper" id="cash-matrix"></div>
+                                    <p class="cash-matrix-note">Clique em um mês para detalhar a pressão de caixa.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
