@@ -1,4 +1,4 @@
-﻿/**
+/**
  * DRE Explorer — árvore expansível premium com data bars e modo zoom.
  */
 import {
@@ -6,8 +6,8 @@ import {
     formatCurrencyCompact,
     formatPct,
     formatNumber
-} from './api.js?v=5.3.1';
-import { openDreLinePanel, openDreZoomView, closeDreZoomView } from './drePanels.js?v=5.3.1';
+} from './api.js?v=5.4';
+import { openDreLinePanel, openDreZoomView, closeDreZoomView } from './drePanels.js?v=5.4';
 
 const LINHA_GRUPO_ORDEM = {
     'Receita bruta': 10,
@@ -46,14 +46,27 @@ function linePrefix(node) {
     return '';
 }
 
-function rowClass(node) {
-    const parts = ['dre-row', `dre-row--${node.type}`];
-    if (node.isTotal) parts.push('dre-row--result');
+function rowClasses(node, isActive, isExpanded) {
+    const parts = ['dre-statement-row'];
+    if (node.isTotal) parts.push('dre-row--final');
     else if (SUBTOTAL_LINES.has(node.linha_dre)) parts.push('dre-row--subtotal');
+    else if (node.type === 'account') parts.push('dre-row--account');
+    else if (node.type === 'group' || (node.type === 'synthetic' && !node.isCalc)) parts.push('dre-row--group');
     if (node.isCalc) parts.push('dre-row--calc');
     if (Number(node.valor) < 0) parts.push('dre-negative');
-    else if (Number(node.valor) > 0 && node.type === 'synthetic') parts.push('dre-positive');
+    if (isActive) parts.push('is-active');
+    if (isExpanded) parts.push('is-expanded');
     return parts.join(' ');
+}
+
+function lineLabel(node) {
+    if (node.type === 'account') return node.subgrupo || node.conta_nome || node.label || '';
+    if (node.type === 'group') return node.grupo_dre || node.label || '';
+    return node.linha_dre || node.label || '';
+}
+
+function barWidth(val, maxAbs) {
+    return Math.min(100, (Math.abs(Number(val || 0)) / maxAbs) * 100);
 }
 
 function fmtVal(v) {
@@ -151,6 +164,7 @@ export function buildExplorerModel(lines, contabilRows) {
                         isCalc: false,
                         children: accounts.map(a => ({
                             ...a,
+                            label: a.subgrupo || a.conta_nome,
                             linha_dre: line.linha_dre,
                             pctRecLiq: null
                         }))
@@ -177,12 +191,6 @@ function pctRecLiq(val, receitaLiq) {
     return formatPct((val / receitaLiq) * 100);
 }
 
-function dataBarStyle(val, maxAbs) {
-    const pct = Math.min(100, (Math.abs(val) / maxAbs) * 100);
-    const positive = val >= 0;
-    return `--bar-w:${pct}%;--bar-tone:${positive ? 'var(--positive)' : 'var(--negative)'}`;
-}
-
 function fmtHaSc(v) {
     if (v == null || v === 0 || Number.isNaN(v)) return '—';
     return formatCurrencyCompact(v);
@@ -195,13 +203,15 @@ function renderRow(node, ctx, depth = 0) {
     const isExpanded = expandedNodes.has(node.id);
     const isActive = activeRowId === node.id;
     const canExpand = hasChildren && !node.isCalc;
-    const indent = depth * 1.25;
     const prefix = linePrefix(node);
-    const displayLabel = prefix ? `${prefix} ${node.label}` : node.label;
+    const name = lineLabel(node);
+    const displayLabel = prefix ? `${prefix} ${name}` : name;
+    const bw = barWidth(node.valor, maxAbs);
+    const barTone = Number(node.valor) >= 0 ? 'positive' : 'negative';
 
     const chevron = canExpand
-        ? `<button type="button" class="dre-expand-button${isExpanded ? ' dre-expand-button--open' : ''}" data-expand="${node.id}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? 'Recolher' : 'Expandir'} ${node.label}">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg>
+        ? `<button type="button" class="dre-expand-button${isExpanded ? ' dre-expand-button--open' : ''}" data-expand="${node.id}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? 'Recolher' : 'Expandir'} ${name}">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg>
            </button>`
         : `<span class="dre-expand-button dre-expand-button--spacer" aria-hidden="true"></span>`;
 
@@ -210,38 +220,37 @@ function renderRow(node, ctx, depth = 0) {
         : '';
 
     let html = `
-        <div class="${rowClass(node)}${isActive ? ' dre-row--active' : ''}${isExpanded ? ' dre-row--expanded' : ''}"
-             data-node-id="${node.id}" data-depth="${depth}" style="--row-indent:${indent}rem">
-            <div class="dre-row-main" role="button" tabindex="0" data-open="${node.id}" title="Clique para detalhar">
+        <div class="${rowClasses(node, isActive, isExpanded)}"
+             data-node-id="${node.id}"
+             data-open="${node.id}"
+             data-depth="${depth}"
+             role="button"
+             tabindex="0"
+             title="Clique para detalhar">
+            <div class="dre-line-label" data-level="${Math.min(depth, 2)}">
                 ${chevron}
-                <div class="dre-row-label">
-                    <span class="dre-row-name">${displayLabel}</span>
-                    ${node.type === 'account' ? `<span class="dre-row-meta">${node.conta_codigo || ''}</span>` : ''}
-                </div>
-                <div class="dre-value-cell dre-col-val" style="${dataBarStyle(node.valor, maxAbs)}">
-                    <span class="dre-value-bar" aria-hidden="true"></span>
-                    <span class="dre-val-text">${fmtVal(node.valor)}</span>
-                </div>
-                <div class="dre-col-pct dre-col-hide-sm">${pct}</div>
-                <div class="dre-col-ha dre-col-hide-sm">${fmtHaSc(node.valor_ha)}</div>
-                <div class="dre-col-sc dre-col-hide-sm">${node.valor_sc != null ? formatCurrency(node.valor_sc) : '—'}</div>
-                <div class="dre-col-actions">${zoomBtn}</div>
+                <span class="dre-line-text">${displayLabel}</span>
+                ${node.type === 'account' && node.conta_codigo ? `<span class="dre-line-meta">${node.conta_codigo}</span>` : ''}
+                ${zoomBtn}
             </div>
+            <div class="dre-value-wrap dre-number${Number(node.valor) < 0 ? ' dre-negative' : ''}">
+                <div class="dre-value-bar dre-value-bar--${barTone}" style="width:${bw}%"></div>
+                <span class="dre-value-text">${fmtVal(node.valor)}</span>
+            </div>
+            <div class="dre-number dre-col-pct dre-col-hide-sm">${pct}</div>
+            <div class="dre-number dre-col-ha dre-col-hide-sm">${fmtHaSc(node.valor_ha)}</div>
+            <div class="dre-number dre-col-sc dre-col-hide-sm">${node.valor_sc != null && node.valor_sc !== 0 ? formatCurrency(node.valor_sc) : '—'}</div>
         </div>
     `;
 
     if (canExpand && isExpanded) {
-        html += `<div class="dre-children dre-children--open" data-parent="${node.id}">`;
+        html += `<div class="dre-statement-children dre-statement-children--open" data-parent="${node.id}">`;
         if (node.children.length) {
-            node.children.forEach(child => {
-                html += renderRow(child, ctx, depth + 1);
-            });
+            node.children.forEach(child => { html += renderRow(child, ctx, depth + 1); });
         } else {
             html += `<div class="dre-empty-inline">Nenhuma conta analítica mapeada nesta linha.</div>`;
         }
         html += '</div>';
-    } else if (canExpand && !isExpanded) {
-        html += `<div class="dre-children" data-parent="${node.id}" hidden></div>`;
     }
 
     return html;
@@ -273,8 +282,8 @@ function bindExplorerEvents(container, model, ctx) {
 
     const openDetail = id => {
         activeRowId = id;
-        container.querySelectorAll('.dre-row').forEach(r => {
-            r.classList.toggle('dre-row--active', r.dataset.nodeId === id);
+        container.querySelectorAll('.dre-statement-row').forEach(r => {
+            r.classList.toggle('is-active', r.dataset.nodeId === id);
         });
         const node = findNode(model, id);
         if (!node) return;
@@ -316,22 +325,28 @@ export function renderDreExplorer(container, model, ctx) {
     const maxAbs = Math.max(...model.map(n => Math.abs(n.valor)), 1);
     const renderCtx = { ...ctx, maxAbs };
 
+    const meta = ctx.filterContext
+        ? ctx.filterContext.replace('Recorte atual: ', '')
+        : 'Consolidado · Toda a fazenda';
+
     container.innerHTML = `
         <div class="dre-statement-shell">
-            <div class="dre-statement-header">
-                <h3>DRE Gerencial — Competência</h3>
-                <p>Valores em R$ · Regime de competência · Clique na linha para investigar</p>
+            <div class="dre-statement-titlebar">
+                <div>
+                    <h3>DRE Gerencial — Competência</h3>
+                    <p>Valores em R$ · Regime de competência · Clique nas linhas para investigar</p>
+                </div>
+                <div class="dre-statement-meta">${meta}</div>
             </div>
             <div class="dre-statement-table">
-                <div class="dre-grid-head">
-                    <div class="dre-col-label">Linha DRE</div>
-                    <div class="dre-col-val">Valor</div>
-                    <div class="dre-col-pct dre-col-hide-sm">% RL</div>
-                    <div class="dre-col-ha dre-col-hide-sm">R$/ha</div>
-                    <div class="dre-col-sc dre-col-hide-sm">R$/sc</div>
-                    <div class="dre-col-actions"></div>
+                <div class="dre-statement-head">
+                    <div>Linha DRE</div>
+                    <div class="dre-number">Valor</div>
+                    <div class="dre-number dre-col-hide-sm">% RL</div>
+                    <div class="dre-number dre-col-hide-sm">R$/ha</div>
+                    <div class="dre-number dre-col-hide-sm">R$/sc</div>
                 </div>
-                <div class="dre-grid-body">
+                <div class="dre-statement-body">
                     ${model.map(n => renderRow(n, renderCtx, 0)).join('')}
                 </div>
             </div>

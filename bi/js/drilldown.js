@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Drawer lateral / bottom sheet para drill-down analítico.
  */
 

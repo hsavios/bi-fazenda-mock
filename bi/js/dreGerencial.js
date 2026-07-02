@@ -1,14 +1,14 @@
-﻿/**
+/**
  * DRE Gerencial Contábil — demonstrativo formal + subtabs.
  */
 import {
     formatCurrency,
     formatCurrencyCompact,
     formatPct
-} from './api.js?v=5.3.1';
-import { buildExplorerModel, renderDreExplorer, resetExplorerState } from './dreExplorer.js?v=5.3.1';
-import { renderPremiumBalancete, renderPremiumCultura } from './drePanels.js?v=5.3.1';
-import { renderDreVisualizacoes } from './dreVisualizacoes.js?v=5.3.1';
+} from './api.js?v=5.4';
+import { buildExplorerModel, renderDreExplorer, resetExplorerState } from './dreExplorer.js?v=5.4';
+import { renderPremiumBalancete, renderPremiumCultura } from './drePanels.js?v=5.4';
+import { renderDreVisualizacoes } from './dreVisualizacoes.js?v=5.4';
 
 const CONSOLIDADO = 'Consolidado';
 

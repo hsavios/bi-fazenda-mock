@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Filtros inteligentes em cascata — estado, engine e painel UI.
  */
 const STORAGE_KEY = 'bi-agro-filters-v1';

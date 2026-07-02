@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Registry central de drill-down — cobertura, resolvers e openDataDrilldown.
  *
  * Mapa de cobertura (auditoria):
@@ -35,19 +35,19 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.3.1';
+} from './api.js?v=5.4';
 import {
     aggregateDreByCulture,
     buildCultureInsights,
     buildStockInsights,
     buildTalhaoInsight
-} from './insights.js?v=5.3.1';
+} from './insights.js?v=5.4';
 import {
     buildDecisionDrilldown,
     buildCommercialSummary,
     aggregateCashByMonth
-} from './decisionQuestions.js?v=5.3.1';
-import { openDrilldown } from './drilldown.js?v=5.3.1';
+} from './decisionQuestions.js?v=5.4';
+import { openDrilldown } from './drilldown.js?v=5.4';
 
 const COVERAGE = [];
 

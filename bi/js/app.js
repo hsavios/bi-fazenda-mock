@@ -1,17 +1,17 @@
-﻿import {
+import {
     fetchView,
     formatNumber,
     formatCurrency,
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=5.3.1';
+} from './api.js?v=5.4';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
     buildStockPanelInsights,
     renderInsightCards
-} from './insights.js?v=5.3.1';
+} from './insights.js?v=5.4';
 import {
     buildDecisionQuestions,
     buildCommercialSummary,
@@ -23,10 +23,10 @@ import {
     renderCommercialTable,
     renderCashMatrix,
     renderCashMobilePanel
-} from './decisionQuestions.js?v=5.3.1';
-import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.3.1';
-import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.3.1';
-import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.3.1';
+} from './decisionQuestions.js?v=5.4';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.4';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.4';
+import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.4';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -38,7 +38,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=5.3.1';
+} from './charts.js?v=5.4';
 import {
     initFilters,
     loadFilterState,
@@ -50,7 +50,7 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=5.3.1';
+} from './filters.js?v=5.4';
 
 const charts = {};
 const chartsReady = new Set();
