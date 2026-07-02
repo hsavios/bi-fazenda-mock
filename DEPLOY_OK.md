@@ -87,6 +87,30 @@ ssh -L 8088:127.0.0.1:8088 helio@srv1535465
 # abrir http://127.0.0.1:8088 no navegador
 ```
 
+## Demo pública (demo-agro.heliosavio.com)
+
+| Item | Valor |
+|------|-------|
+| URL pública | https://demo-agro.heliosavio.com |
+| Tunnel | `demo-agro.heliosavio.com` → `http://127.0.0.1:8088` |
+| Landing | https://heliosavio.com — seção “Demonstrações” |
+| PostgREST público | **Não** — somente `/api/` via nginx |
+| Dados | Fictícios — portfólio |
+
+### Publicar / validar
+
+Ver `docs/publicacao-demo-agro-bi.md` e `docs/checklist-seguranca-demo-publica.md`.
+
+```bash
+BI_PGRST_PORT=3010 BI_NGINX_PORT=8088 ./scripts/deploy_bi_vps.sh
+./scripts/validate_bi_vps.sh
+./scripts/validate_demo_public.sh
+```
+
+### Rollback publicação
+
+Remover rota `demo-agro.heliosavio.com` do `/etc/cloudflared/config.yml` e `sudo systemctl restart cloudflared`.
+
 ## Logs
 
 | Tipo | Arquivo |

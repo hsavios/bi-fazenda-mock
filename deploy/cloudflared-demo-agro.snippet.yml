@@ -1,0 +1,13 @@
+﻿# Snippet para adicionar ao /etc/cloudflared/config.yml
+# Inserir ANTES da regra catch-all (http_status:404)
+#
+# Backup antes de editar:
+#   sudo cp /etc/cloudflared/config.yml /etc/cloudflared/config.yml.bak.$(date +%Y%m%d)
+#
+# Validar e reiniciar (ajuste conforme versão do cloudflared):
+#   sudo cloudflared tunnel ingress validate /etc/cloudflared/config.yml
+#   sudo systemctl restart cloudflared
+#   sudo systemctl status cloudflared --no-pager
+
+  - hostname: demo-agro.heliosavio.com
+    service: http://127.0.0.1:8088

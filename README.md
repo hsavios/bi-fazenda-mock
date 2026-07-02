@@ -104,6 +104,8 @@ BI_PGRST_PORT=3010 BI_NGINX_PORT=8088 ./scripts/deploy_bi_vps.sh
 
 Acesse: http://127.0.0.1:8088 (PostgREST em :3010 — **não usa :3000**)
 
+Demo pública (após Cloudflared): https://demo-agro.heliosavio.com
+
 Túnel SSH a partir do seu PC: `ssh -L 8088:127.0.0.1:8088 helio@srv1535465`
 
 ---
@@ -153,6 +155,8 @@ Todos os scripts bloqueiam uso acidental do container errado.
 
 - [Deploy na VPS](docs/deploy-agro-fazenda-mock-postgresql.md)
 - [Deploy do BI](docs/deploy-bi-vps.md)
+- [Publicação demo pública](docs/publicacao-demo-agro-bi.md)
+- [Checklist segurança demo](docs/checklist-seguranca-demo-publica.md)
 - [Modelo de dados](docs/modelo-dados-agro-fazenda-mock.md)
 - [Operação e manutenção](docs/operacao-e-manutencao.md)
 - [Deploy validado na VPS](DEPLOY_OK.md)
