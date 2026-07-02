@@ -52,27 +52,36 @@ urlencode() {
 }
 
 detect_postgres_connection() {
-    local published
+    local published bind_host
     published=$(docker port "$PG_CONTAINER" 5432/tcp 2>/dev/null | head -1 || true)
 
-    if [[ -n "$published" ]]; then
-        PGRST_DB_HOST="host.docker.internal"
-        PGRST_DB_PORT="${published##*:}"
-        PG_NETWORK_MODE="host-gateway"
-        log "PostgreSQL via host publicado em ${published} → host.docker.internal:${PGRST_DB_PORT}"
-        return 0
-    fi
+    # Preferência 1: rede Docker do container postgres (funciona mesmo com bind 127.0.0.1 no host)
+    PG_NETWORK=$(docker inspect "$PG_CONTAINER" --format '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' \
+        | grep -v '^bridge$' | head -1)
 
-    PG_NETWORK=$(docker inspect "$PG_CONTAINER" --format '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' | head -1)
-
-    if [[ -n "$PG_NETWORK" && "$PG_NETWORK" != "bridge" ]]; then
+    if [[ -n "$PG_NETWORK" ]]; then
         PGRST_DB_HOST="$PG_CONTAINER"
         PGRST_DB_PORT="5432"
         PG_NETWORK_MODE="docker-network"
-        log "PostgreSQL via rede Docker '$PG_NETWORK' → ${PGRST_DB_HOST}:${PGRST_DB_PORT}"
+        log "PostgreSQL via rede Docker '${PG_NETWORK}' → ${PGRST_DB_HOST}:${PGRST_DB_PORT}"
+        [[ -n "$published" ]] && log "(porta no host: ${published} — PostgREST usa rede interna Docker)"
         return 0
     fi
 
+    # Preferência 2: host publicado em 0.0.0.0 (host.docker.internal alcança o host)
+    if [[ -n "$published" ]]; then
+        bind_host="${published%%:*}"
+        if [[ "$bind_host" != "127.0.0.1" && "$bind_host" != "::1" ]]; then
+            PGRST_DB_HOST="host.docker.internal"
+            PGRST_DB_PORT="${published##*:}"
+            PG_NETWORK_MODE="host-gateway"
+            log "PostgreSQL via host publicado em ${published} → host.docker.internal:${PGRST_DB_PORT}"
+            return 0
+        fi
+        log "PostgreSQL publicado apenas em ${bind_host} — host.docker.internal não funciona; usando rede bridge."
+    fi
+
+    # Preferência 3: bridge + IP do container
     PGRST_DB_HOST=$(docker inspect "$PG_CONTAINER" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
     PGRST_DB_PORT="5432"
     PG_NETWORK_MODE="ip"
@@ -80,7 +89,7 @@ detect_postgres_connection() {
         log "ERRO: não foi possível detectar IP do container $PG_CONTAINER." >&2
         return 1
     fi
-    log "PostgreSQL via IP do container → ${PGRST_DB_HOST}:${PGRST_DB_PORT}"
+    log "PostgreSQL via IP do container (bridge) → ${PGRST_DB_HOST}:${PGRST_DB_PORT}"
 }
 
 write_compose_override() {
@@ -167,6 +176,9 @@ log "Config gerada: $ENV_FILE"
 
 write_compose_override
 
+# nginx precisa ler arquivos estáticos montados do host
+chmod -R a+rX "$PROJECT_ROOT/bi"
+
 cd "$PROJECT_ROOT"
 COMPOSE_ARGS=(-f "$COMPOSE_FILE")
 [[ -f "$COMPOSE_OVERRIDE" ]] && COMPOSE_ARGS+=(-f "$COMPOSE_OVERRIDE")
@@ -176,6 +188,9 @@ docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE" up -d
 if [[ "$PG_NETWORK_MODE" == "ip" ]]; then
     log "Conectando PostgREST à rede bridge do PostgreSQL..."
     docker network connect bridge fazenda-mock-postgrest 2>/dev/null || true
+    log "Reiniciando PostgREST para reconectar ao banco..."
+    docker restart fazenda-mock-postgrest >/dev/null
+    sleep 3
 fi
 
 log "Aguardando PostgREST..."

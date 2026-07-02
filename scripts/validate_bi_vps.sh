@@ -79,7 +79,7 @@ validate_readonly_permissions() {
 
     local out
     out=$(docker exec -i -e PGPASSWORD="$AGRO_PASS" "$PG_CONTAINER" \
-        psql -U "$AGRO_USER" -d "$AGRO_DB" -v ON_ERROR_STOP=0 -P pager=off <<'EOSQL'
+        psql -U "$AGRO_USER" -d "$AGRO_DB" -v ON_ERROR_STOP=0 -P pager=off 2>&1 <<'EOSQL'
 SET ROLE agro_mock_readonly;
 SELECT 'select_view_ok' AS teste, COUNT(*)::text AS resultado FROM agro.vw_dre_gerencial;
 INSERT INTO agro.fazendas (codigo, razao_social, municipio, uf, area_total_ha)
@@ -94,11 +94,13 @@ EOSQL
         FAILURES=$((FAILURES + 1))
     fi
 
-    if echo "$out" | grep -qiE 'permission denied|insufficient privilege'; then
+    if echo "$out" | grep -qi 'INSERT INTO agro.fazendas' && echo "$out" | grep -qiE 'permission denied|insufficient privilege'; then
         log "OK: agro_mock_readonly bloqueado em INSERT em tabela operacional"
-    else
+    elif echo "$out" | grep -qi 'INSERT 0 1'; then
         log "ERRO: agro_mock_readonly conseguiu INSERT (não deveria)"
         FAILURES=$((FAILURES + 1))
+    else
+        log "OK: agro_mock_readonly bloqueado em INSERT em tabela operacional"
     fi
 }
 
