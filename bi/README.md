@@ -20,14 +20,18 @@ Demonstração interativa mobile-first para portfólio. Consome dados fictícios
 
 Acesse: http://127.0.0.1:8088 (VPS) ou a porta em `.env.bi`.
 
-## Seções da demo
+## Seções da demo (navegação por abas)
 
-1. **Visão geral da safra** — receita, custo, margem, culturas, área
-2. **Resultado por cultura** — cards por soja, milho, sorgo, feijão, café
-3. **Estoques** — produção armazenada e insumos
-4. **Financeiro e DRE** — KPIs, fluxo de caixa, DRE por cultura
-5. **Custos e operações** — talhões, máquinas, mão de obra
-6. **Bloco comercial** — CTA para contato
+Layout tipo aplicativo — uma tela por vez, sem scroll longo de landing.
+
+1. **Visão Geral** — KPIs compactos + gráfico receita/resultado
+2. **Culturas** — cards por cultura com status
+3. **Estoques** — gráfico horizontal + insumos
+4. **Financeiro** — DRE + fluxo de caixa
+5. **Operações** — talhões, máquinas, mão de obra
+6. **Sobre** — texto comercial e CTA
+
+URLs com hash: `#visao-geral`, `#culturas`, `#estoques`, etc.
 
 ## Views consumidas
 

@@ -1,48 +1,66 @@
-﻿import { fetchView, formatNumber, formatCurrency, formatPct, sumField } from './api.js';
+﻿import {
+    fetchView,
+    formatNumber,
+    formatCurrency,
+    formatCurrencyCompact,
+    formatPct,
+    sumField
+} from './api.js';
 
 const charts = {};
+const TABS = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'operacoes', 'sobre'];
+const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
 
 function el(id) {
     return document.getElementById(id);
 }
 
-function initChart(id, theme = null) {
+function initChart(id) {
     const node = el(id);
     if (!node) return null;
     if (charts[id]) charts[id].dispose();
-    charts[id] = echarts.init(node, theme);
+    charts[id] = echarts.init(node);
     return charts[id];
+}
+
+function resizeCharts() {
+    Object.values(charts).forEach(c => c?.resize());
+}
+
+function kpiCard(label, value, className = '', fullValue = '') {
+    const title = fullValue ? ` title="${fullValue.replace(/"/g, '&quot;')}"` : '';
+    return `
+        <div class="kpi-card">
+            <div class="kpi-label">${label}</div>
+            <div class="kpi-value ${className}"${title}>${value}</div>
+        </div>
+    `;
 }
 
 function renderKpis(containerId, items) {
     const container = el(containerId);
     if (!container) return;
-    container.innerHTML = items.map(item => `
-        <div class="kpi-card">
-            <div class="kpi-label">${item.label}</div>
-            <div class="kpi-value ${item.className || ''}">${item.value}</div>
-        </div>
-    `).join('');
+    container.innerHTML = items.map(item =>
+        kpiCard(item.label, item.value, item.className || '', item.full || '')
+    ).join('');
 }
 
 function renderDataCards(containerId, cards) {
     const container = el(containerId);
     if (!container) return;
     if (!cards.length) {
-        container.innerHTML = '<p class="data-card">Nenhum registro disponível.</p>';
+        container.innerHTML = '<p class="data-card">Sem registros.</p>';
         return;
     }
     container.innerHTML = cards.map(card => `
         <article class="data-card">
             <div class="data-card-title">${card.title}</div>
-            <dl class="data-card-rows">
-                ${card.rows.map(r => `
-                    <div class="data-row">
-                        <span>${r.label}</span>
-                        <span>${r.value}</span>
-                    </div>
-                `).join('')}
-            </dl>
+            ${card.rows.map(r => `
+                <div class="data-row">
+                    <span>${r.label}</span>
+                    <span${r.title ? ` title="${r.title}"` : ''}>${r.value}</span>
+                </div>
+            `).join('')}
         </article>
     `).join('');
 }
@@ -63,6 +81,17 @@ function aggregateByCulture(dreRows) {
     return [...map.values()];
 }
 
+function sortCultures(names) {
+    return [...names].sort((a, b) => {
+        const ia = CULTURE_ORDER.indexOf(a);
+        const ib = CULTURE_ORDER.indexOf(b);
+        if (ia === -1 && ib === -1) return a.localeCompare(b);
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+    });
+}
+
 function avgProdutividadeByCulture(prodRows) {
     const map = new Map();
     prodRows.forEach(r => {
@@ -77,6 +106,15 @@ function avgProdutividadeByCulture(prodRows) {
     return result;
 }
 
+function moneyKpi(label, n, className = '') {
+    return {
+        label,
+        value: formatCurrencyCompact(n),
+        full: formatCurrency(n),
+        className
+    };
+}
+
 function renderOverview(dre, margem, custoHa, comercial) {
     const byCulture = aggregateByCulture(dre);
     const receitaTotal = sumField(byCulture, 'receita_bruta');
@@ -86,16 +124,17 @@ function renderOverview(dre, margem, custoHa, comercial) {
     const areaTotal = custoHa.reduce((s, r) => s + Number(r.area_total_ha || 0), 0);
 
     renderKpis('kpi-overview', [
-        { label: 'Receita total', value: formatCurrency(receitaTotal) },
-        { label: 'Custo total', value: formatCurrency(custoTotal) },
-        { label: 'Margem bruta', value: formatCurrency(margemBrutaTotal), className: 'kpi-value--gold' },
-        { label: 'Culturas monitoradas', value: formatNumber(culturas.size || comercial.length) },
-        { label: 'Área total', value: formatNumber(areaTotal, 0) + ' ha' }
+        moneyKpi('Receita total', receitaTotal),
+        moneyKpi('Custo total', custoTotal),
+        moneyKpi('Margem bruta', margemBrutaTotal, 'kpi-value--gold'),
+        { label: 'Área total', value: formatNumber(areaTotal, 0) + ' ha' },
+        { label: 'Culturas', value: formatNumber(culturas.size || comercial.length) }
     ]);
 
     const chart = initChart('chart-overview');
     if (chart && byCulture.length) {
-        const names = byCulture.map(r => r.cultura_nome);
+        const sorted = sortCultures(byCulture.map(r => r.cultura_nome));
+        const data = sorted.map(name => byCulture.find(r => r.cultura_nome === name));
         chart.setOption({
             color: ['#40916c', '#b8860b'],
             tooltip: {
@@ -104,32 +143,32 @@ function renderOverview(dre, margem, custoHa, comercial) {
                     `${p.marker} ${p.seriesName}: ${formatCurrency(p.value)}`
                 ).join('<br>')
             },
-            legend: { data: ['Receita', 'Resultado'], bottom: 0, textStyle: { fontSize: 11 } },
-            grid: { left: 48, right: 16, top: 24, bottom: 56 },
+            legend: { data: ['Receita', 'Resultado'], bottom: 4, textStyle: { fontSize: 11 } },
+            grid: { left: 52, right: 12, top: 20, bottom: 52, containLabel: false },
             xAxis: {
                 type: 'category',
-                data: names,
-                axisLabel: { fontSize: 10, rotate: names.length > 4 ? 30 : 0 }
+                data: sorted,
+                axisLabel: { fontSize: 11, interval: 0 }
             },
             yAxis: {
                 type: 'value',
-                axisLabel: { formatter: v => (v / 1e6).toFixed(1) + 'M', fontSize: 10 }
+                axisLabel: { fontSize: 10, formatter: v => (v / 1e6).toFixed(0) + 'M' }
             },
             series: [
-                { name: 'Receita', type: 'bar', data: byCulture.map(r => r.receita_bruta), barMaxWidth: 36 },
-                { name: 'Resultado', type: 'bar', data: byCulture.map(r => r.resultado), barMaxWidth: 36 }
+                { name: 'Receita', type: 'bar', data: data.map(r => r.receita_bruta), barMaxWidth: 32 },
+                { name: 'Resultado', type: 'bar', data: data.map(r => r.resultado), barMaxWidth: 32 }
             ]
-        });
+        }, true);
     }
 }
 
 function renderCulturas(resultado, margem, produtividade) {
     const prodMap = avgProdutividadeByCulture(produtividade);
     const margemMap = new Map(margem.map(m => [m.cultura_nome, m]));
-    const culturas = [...new Set([
+    const culturas = sortCultures([...new Set([
         ...resultado.map(r => r.cultura_nome),
         ...margem.map(m => m.cultura_nome)
-    ])].filter(Boolean).sort();
+    ])].filter(Boolean));
 
     const container = el('culture-cards');
     if (!container) return;
@@ -139,15 +178,34 @@ function renderCulturas(resultado, margem, produtividade) {
         const mar = margemMap.get(nome) || {};
         const prod = prodMap.get(nome);
         const custo = Number(res.custos_variaveis || 0) + Number(res.custos_fixos || 0);
+        const resultadoVal = Number(res.resultado ?? mar.margem_bruta ?? 0);
+        const positive = resultadoVal >= 0;
 
         return `
-            <article class="culture-card">
-                <h3>${nome}</h3>
+            <article class="culture-card ${positive ? '' : 'culture-card--negative'}">
+                <div class="culture-card-header">
+                    <h3>${nome}</h3>
+                    <span class="status-pill ${positive ? 'status-pill--ok' : 'status-pill--warn'}">
+                        ${positive ? 'Positivo' : 'Atenção'}
+                    </span>
+                </div>
                 <dl class="culture-metrics">
-                    <div class="metric"><dt>Receita</dt><dd>${formatCurrency(res.receita_bruta ?? mar.receita_bruta)}</dd></div>
-                    <div class="metric"><dt>Custo</dt><dd>${formatCurrency(custo || null)}</dd></div>
-                    <div class="metric"><dt>Margem bruta</dt><dd>${formatCurrency(mar.margem_bruta)}</dd></div>
-                    <div class="metric"><dt>Produtividade</dt><dd>${prod != null ? formatNumber(prod, 1) + ' sc/ha' : '—'}</dd></div>
+                    <div class="metric">
+                        <dt>Receita</dt>
+                        <dd title="${formatCurrency(res.receita_bruta ?? mar.receita_bruta)}">${formatCurrencyCompact(res.receita_bruta ?? mar.receita_bruta)}</dd>
+                    </div>
+                    <div class="metric">
+                        <dt>Custo</dt>
+                        <dd title="${formatCurrency(custo)}">${formatCurrencyCompact(custo)}</dd>
+                    </div>
+                    <div class="metric">
+                        <dt>Margem</dt>
+                        <dd title="${formatCurrency(mar.margem_bruta)}">${formatCurrencyCompact(mar.margem_bruta)}</dd>
+                    </div>
+                    <div class="metric">
+                        <dt>Produtividade</dt>
+                        <dd>${prod != null ? formatNumber(prod, 1) + ' sc/ha' : '—'}</dd>
+                    </div>
                 </dl>
             </article>
         `;
@@ -159,27 +217,38 @@ function renderEstoques(insumos, producao) {
     const volumeProd = sumField(producao, 'quantidade_atual_sc');
 
     renderKpis('kpi-estoques', [
-        { label: 'Produção armazenada', value: formatNumber(volumeProd, 0) + ' sc' },
-        { label: 'Itens de insumo', value: formatNumber(insumos.length) },
-        { label: 'Valor est. insumos', value: formatCurrency(valorInsumos) }
+        { label: 'Produção (sc)', value: formatNumber(volumeProd, 0) },
+        { label: 'Itens insumo', value: formatNumber(insumos.length) },
+        moneyKpi('Valor insumos', valorInsumos)
     ]);
 
-    renderDataCards('cards-estoque-prod', producao.slice(0, 12).map(p => ({
-        title: `${p.cultura_nome} · ${p.lote_codigo || 'Lote'}`,
-        rows: [
-            { label: 'Safra', value: p.safra_codigo || '—' },
-            { label: 'Talhão', value: p.talhao_codigo || '—' },
-            { label: 'Estoque', value: formatNumber(p.quantidade_atual_sc, 0) + ' sc' },
-            { label: 'Umidade', value: p.umidade_pct != null ? formatPct(p.umidade_pct) : '—' }
-        ]
-    })));
+    const byCulture = new Map();
+    producao.forEach(p => {
+        const c = p.cultura_nome;
+        byCulture.set(c, (byCulture.get(c) || 0) + Number(p.quantidade_atual_sc || 0));
+    });
+    const cultNames = sortCultures([...byCulture.keys()]);
+    const chart = initChart('chart-estoque-prod');
+    if (chart && cultNames.length) {
+        chart.setOption({
+            color: ['#40916c'],
+            tooltip: { trigger: 'axis', formatter: p => `${p[0].name}: ${formatNumber(p[0].value, 0)} sc` },
+            grid: { left: 8, right: 24, top: 8, bottom: 8, containLabel: true },
+            xAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+            yAxis: { type: 'category', data: cultNames, axisLabel: { fontSize: 11 } },
+            series: [{
+                type: 'bar',
+                data: cultNames.map(c => byCulture.get(c)),
+                barMaxWidth: 22
+            }]
+        }, true);
+    }
 
-    renderDataCards('cards-estoque-ins', insumos.slice(0, 10).map(i => ({
+    renderDataCards('cards-estoque-ins', insumos.slice(0, 8).map(i => ({
         title: i.insumo_nome,
         rows: [
-            { label: 'Categoria', value: i.categoria || '—' },
-            { label: 'Quantidade', value: formatNumber(i.quantidade_atual, 2) + ' ' + (i.unidade || '') },
-            { label: 'Valor', value: formatCurrency(i.valor_estoque) }
+            { label: 'Qtd', value: formatNumber(i.quantidade_atual, 1) + ' ' + (i.unidade || '') },
+            { label: 'Valor', value: formatCurrencyCompact(i.valor_estoque), title: formatCurrency(i.valor_estoque) }
         ]
     })));
 }
@@ -193,128 +262,163 @@ function renderFinanceiro(dre, fluxo) {
     const resultadoClass = resultado >= 0 ? 'kpi-value--positive' : 'kpi-value--negative';
 
     renderKpis('kpi-financeiro', [
-        { label: 'Receita', value: formatCurrency(receita) },
-        { label: 'Custos variáveis', value: formatCurrency(custos) },
-        { label: 'Despesas fixas', value: formatCurrency(despesas) },
-        { label: 'Resultado', value: formatCurrency(resultado), className: resultadoClass }
+        moneyKpi('Receita', receita),
+        moneyKpi('Custos', custos),
+        moneyKpi('Despesas', despesas),
+        moneyKpi('Resultado', resultado, resultadoClass)
     ]);
 
     const chart = initChart('chart-fluxo');
     if (chart && fluxo.length) {
         chart.setOption({
             color: ['#2d6a4f'],
-            tooltip: { trigger: 'axis', formatter: p => `${p[0].axisValue}<br>Saldo: ${formatCurrency(p[0].value)}` },
-            grid: { left: 56, right: 16, top: 16, bottom: 48 },
+            tooltip: {
+                trigger: 'axis',
+                formatter: p => `${p[0].axisValue}<br>Saldo: ${formatCurrency(p[0].value)}`
+            },
+            grid: { left: 48, right: 12, top: 16, bottom: 40 },
             xAxis: {
                 type: 'category',
                 data: fluxo.map(r => r.data_movimento),
-                axisLabel: { fontSize: 9, rotate: 45 }
+                axisLabel: { fontSize: 9, rotate: 35, interval: Math.floor(fluxo.length / 6) }
             },
-            yAxis: { type: 'value', axisLabel: { fontSize: 10, formatter: v => (v / 1e6).toFixed(1) + 'M' } },
+            yAxis: {
+                type: 'value',
+                axisLabel: { fontSize: 10, formatter: v => (v / 1e6).toFixed(0) + 'M' }
+            },
             series: [{
                 type: 'line',
                 smooth: true,
                 data: fluxo.map(r => r.saldo_acumulado),
-                areaStyle: { opacity: 0.12 }
+                areaStyle: { opacity: 0.1 }
             }]
-        });
+        }, true);
     }
 
-    renderDataCards('cards-dre', byCulture.map(d => ({
-        title: d.cultura_nome,
-        rows: [
-            { label: 'Receita bruta', value: formatCurrency(d.receita_bruta) },
-            { label: 'Custos variáveis', value: formatCurrency(d.custos_variaveis) },
-            { label: 'Custos fixos', value: formatCurrency(d.custos_fixos) },
-            { label: 'Resultado', value: formatCurrency(d.resultado) }
-        ]
-    })));
+    renderDataCards('cards-dre', sortCultures(byCulture.map(d => d.cultura_nome)).map(name => {
+        const d = byCulture.find(r => r.cultura_nome === name);
+        return {
+            title: d.cultura_nome,
+            rows: [
+                { label: 'Receita', value: formatCurrencyCompact(d.receita_bruta), title: formatCurrency(d.receita_bruta) },
+                { label: 'Custos var.', value: formatCurrencyCompact(d.custos_variaveis), title: formatCurrency(d.custos_variaveis) },
+                { label: 'Despesas', value: formatCurrencyCompact(d.custos_fixos), title: formatCurrency(d.custos_fixos) },
+                { label: 'Resultado', value: formatCurrencyCompact(d.resultado), title: formatCurrency(d.resultado) }
+            ]
+        };
+    }));
 }
 
 function renderOperacoes(talhoes, maquinas, maoObra) {
     renderDataCards('cards-talhao', talhoes
-        .sort((a, b) => Number(b.resultado_estimado || 0) - Number(a.resultado_estimado || 0))
-        .slice(0, 10)
+        .sort((a, b) => Number(b.custo_total || 0) - Number(a.custo_total || 0))
+        .slice(0, 6)
         .map(t => ({
             title: `${t.talhao_codigo} · ${t.cultura_nome}`,
             rows: [
-                { label: 'Talhão', value: t.talhao_nome || t.talhao_codigo },
                 { label: 'Produção', value: formatNumber(t.producao_sc, 0) + ' sc' },
-                { label: 'Custo', value: formatCurrency(t.custo_total) },
-                { label: 'Resultado est.', value: formatCurrency(t.resultado_estimado) }
+                { label: 'Custo', value: formatCurrencyCompact(t.custo_total), title: formatCurrency(t.custo_total) },
+                { label: 'Resultado', value: formatCurrencyCompact(t.resultado_estimado), title: formatCurrency(t.resultado_estimado) }
             ]
         })));
 
-    renderDataCards('cards-maquinas', maquinas
+    const maqSorted = maquinas
         .sort((a, b) => Number(b.horas_totais || 0) - Number(a.horas_totais || 0))
-        .slice(0, 8)
-        .map(m => ({
-            title: m.equipamento_nome,
-            rows: [
-                { label: 'Categoria', value: m.categoria || '—' },
-                { label: 'Horas', value: formatNumber(m.horas_totais, 1) + ' h' },
-                { label: 'Custo', value: formatCurrency(m.custo_total) },
-                { label: 'Apontamentos', value: formatNumber(m.apontamentos) }
-            ]
-        })));
+        .slice(0, 8);
+
+    const chartMaq = initChart('chart-maquinas');
+    if (chartMaq && maqSorted.length) {
+        chartMaq.setOption({
+            color: ['#2d6a4f'],
+            tooltip: {
+                trigger: 'axis',
+                formatter: p => `${p[0].name}<br>${formatNumber(p[0].value, 1)} h · ${formatCurrency(maqSorted[p[0].dataIndex]?.custo_total)}`
+            },
+            grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
+            xAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+            yAxis: {
+                type: 'category',
+                data: maqSorted.map(m => m.equipamento_nome),
+                axisLabel: { fontSize: 10, width: 90, overflow: 'truncate' }
+            },
+            series: [{
+                type: 'bar',
+                data: maqSorted.map(m => m.horas_totais),
+                barMaxWidth: 20
+            }]
+        }, true);
+    }
 
     const equipeMap = new Map();
     maoObra.forEach(r => {
         const team = r.equipe || 'Sem equipe';
         equipeMap.set(team, (equipeMap.get(team) || 0) + Number(r.horas_totais || 0));
     });
-    const teams = [...equipeMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const teams = [...equipeMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
 
-    const chart = initChart('chart-mao-obra');
-    if (chart && teams.length) {
-        chart.setOption({
+    const chartMo = initChart('chart-mao-obra');
+    if (chartMo && teams.length) {
+        chartMo.setOption({
             color: ['#40916c'],
             tooltip: { trigger: 'axis', formatter: p => `${p[0].name}: ${formatNumber(p[0].value, 1)} h` },
-            grid: { left: 48, right: 16, top: 8, bottom: 64 },
-            xAxis: { type: 'category', data: teams.map(t => t[0]), axisLabel: { fontSize: 9, rotate: 30 } },
-            yAxis: { type: 'value', name: 'Horas', nameTextStyle: { fontSize: 10 } },
-            series: [{ type: 'bar', data: teams.map(t => t[1]), barMaxWidth: 40 }]
-        });
+            grid: { left: 40, right: 12, top: 12, bottom: 48 },
+            xAxis: {
+                type: 'category',
+                data: teams.map(t => t[0]),
+                axisLabel: { fontSize: 9, rotate: 25, interval: 0 }
+            },
+            yAxis: { type: 'value', name: 'h', nameTextStyle: { fontSize: 10 } },
+            series: [{ type: 'bar', data: teams.map(t => t[1]), barMaxWidth: 36 }]
+        }, true);
     }
 }
 
-function setupNavHighlight() {
-    const chips = document.querySelectorAll('.nav-chip');
-    const sections = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'operacoes'];
+function switchTab(tabId, pushHash = true) {
+    if (!TABS.includes(tabId)) tabId = 'visao-geral';
 
-    const observer = new IntersectionObserver(entries => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                chips.forEach(c => c.classList.toggle('active', c.getAttribute('href') === '#' + entry.target.id));
-            }
-        });
-    }, { rootMargin: '-40% 0px -50% 0px', threshold: 0 });
+    document.querySelectorAll('.tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
 
-    sections.forEach(id => {
-        const section = el(id);
-        if (section) observer.observe(section);
+    document.querySelectorAll('.view-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.dataset.view === tabId);
+    });
+
+    const activePanel = document.querySelector(`.view-panel[data-view="${tabId}"]`);
+    if (activePanel) activePanel.scrollTop = 0;
+
+    if (pushHash && location.hash !== `#${tabId}`) {
+        history.replaceState(null, '', `#${tabId}`);
+    }
+
+    requestAnimationFrame(() => {
+        resizeCharts();
+    });
+}
+
+function setupTabs() {
+    document.querySelectorAll('.tab').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    const hash = location.hash.replace('#', '');
+    switchTab(TABS.includes(hash) ? hash : 'visao-geral', false);
+
+    window.addEventListener('hashchange', () => {
+        const h = location.hash.replace('#', '');
+        if (TABS.includes(h)) switchTab(h, false);
     });
 }
 
 async function loadDashboard() {
     const loading = el('loading-state');
-    const content = el('app-content');
+    const views = el('app-views');
     const error = el('error-state');
 
     try {
         const [
-            dre,
-            margem,
-            resultado,
-            custoHa,
-            comercial,
-            produtividade,
-            insumos,
-            producao,
-            fluxo,
-            talhoes,
-            maquinas,
-            maoObra
+            dre, margem, resultado, custoHa, comercial, produtividade,
+            insumos, producao, fluxo, talhoes, maquinas, maoObra
         ] = await Promise.all([
             fetchView('vw_dre_gerencial'),
             fetchView('vw_margem_bruta_cultura'),
@@ -325,7 +429,7 @@ async function loadDashboard() {
             fetchView('vw_estoque_insumos_atual'),
             fetchView('vw_estoque_producao_atual', { limit: '20' }),
             fetchView('vw_fluxo_caixa_realizado', { order: 'data_movimento', limit: '40' }),
-            fetchView('vw_resultado_talhao', { order: 'resultado_estimado.desc', limit: '15' }),
+            fetchView('vw_resultado_talhao', { order: 'custo_total.desc', limit: '15' }),
             fetchView('vw_uso_maquinas_safra'),
             fetchView('vw_horas_mao_obra_safra', { limit: '100' })
         ]);
@@ -337,8 +441,9 @@ async function loadDashboard() {
         renderOperacoes(talhoes, maquinas, maoObra);
 
         loading.classList.add('hidden');
-        content.classList.remove('hidden');
-        setupNavHighlight();
+        views.classList.remove('hidden');
+        setupTabs();
+        resizeCharts();
     } catch (err) {
         console.error(err);
         loading.classList.add('hidden');
@@ -346,5 +451,5 @@ async function loadDashboard() {
     }
 }
 
-window.addEventListener('resize', () => Object.values(charts).forEach(c => c?.resize()));
+window.addEventListener('resize', resizeCharts);
 document.addEventListener('DOMContentLoaded', loadDashboard);

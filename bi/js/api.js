@@ -21,6 +21,24 @@ function formatCurrency(n) {
     return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+/** Formato compacto para KPIs — evita quebra de linha em cards estreitos */
+function formatCurrencyCompact(n) {
+    if (n == null || isNaN(n)) return '—';
+    const num = Number(n);
+    const abs = Math.abs(num);
+    const sign = num < 0 ? '−' : '';
+    if (abs >= 1e9) {
+        return `${sign}R$ ${(abs / 1e9).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} bi`;
+    }
+    if (abs >= 1e6) {
+        return `${sign}R$ ${(abs / 1e6).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mi`;
+    }
+    if (abs >= 1e4) {
+        return `${sign}R$ ${(abs / 1e3).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mil`;
+    }
+    return formatCurrency(num);
+}
+
 function formatPct(n) {
     if (n == null || isNaN(n)) return '—';
     return formatNumber(n, 1) + '%';
@@ -30,4 +48,12 @@ function sumField(rows, key) {
     return rows.reduce((s, r) => s + Number(r[key] || 0), 0);
 }
 
-export { fetchView, formatNumber, formatCurrency, formatPct, sumField, API_BASE };
+export {
+    fetchView,
+    formatNumber,
+    formatCurrency,
+    formatCurrencyCompact,
+    formatPct,
+    sumField,
+    API_BASE
+};
