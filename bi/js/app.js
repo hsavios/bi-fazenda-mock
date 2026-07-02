@@ -57,6 +57,7 @@ const chartsReady = new Set();
 let chartResizeObserver = null;
 let decisionCards = [];
 let selectedDecisionId = null;
+let selectedCashMonthKey = null;
 let selectedDreSubTab = 'dre';
 const DEBUG_BI = location.hostname === 'localhost' || location.search.includes('debug=1');
 const TABS = ['visao-geral', 'culturas', 'estoques', 'dre-gerencial', 'comercializacao', 'caixa', 'operacoes', 'perguntas', 'sobre'];
