@@ -20,9 +20,10 @@
  * comercializacao | chart-stack | commercialCulture | ok
  * comercializacao | chart-ranking | commercialCulture | ok
  * comercializacao | comercial-table | commercialCulture | ok
- * caixa | kpis | kpi/cashMonth | ok
- * caixa | cash-matrix | cashMonth | ok
- * caixa | chart-saldo | cashMonth | ok
+ * caixa | kpis | kpi/cashMatrixCell | ok
+ * caixa | cash-matrix | cashMatrixCell | ok
+ * caixa | chart-saldo | cashMatrixCell | ok
+ * caixa | movimentos | cashMovement | ok
  * operacoes | pareto | talhao | ok
  * operacoes | heatmap | heatmapCell | ok
  * operacoes | ranking-talhao | talhao | ok
@@ -35,19 +36,25 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.4.1';
+} from './api.js?v=5.5';
 import {
     aggregateDreByCulture,
     buildCultureInsights,
     buildStockInsights,
     buildTalhaoInsight
-} from './insights.js?v=5.4.1';
+} from './insights.js?v=5.5';
 import {
     buildDecisionDrilldown,
     buildCommercialSummary,
     aggregateCashByMonth
-} from './decisionQuestions.js?v=5.4.1';
-import { openDrilldown } from './drilldown.js?v=5.4.1';
+} from './decisionQuestions.js?v=5.5';
+import {
+    getCashCellDetails,
+    groupCashMovementsByCategory,
+    formatMonthLabel,
+    CASH_INDICATORS
+} from './cashFlow.js?v=5.5';
+import { openDrilldown } from './drilldown.js?v=5.5';
 
 const COVERAGE = [];
 
@@ -239,6 +246,132 @@ function buildCashMonthDrill(monthKey, monthLabel, data) {
     const drill = buildDecisionDrilldown(card, data);
     if (!drill) return null;
     return { ...drill, type: 'cashMonth', source: 'vw_fluxo_caixa_realizado' };
+}
+
+function buildCashMatrixCellDrill(context, data) {
+    const { monthKey, indicator } = context;
+    const details = getCashCellDetails(data.fluxo, { monthKey, indicator });
+    if (!details) return null;
+
+    const indLabel = CASH_INDICATORS[indicator]?.label || indicator;
+
+    if (details.isZero && (indicator === 'entradas' || indicator === 'saidas')) {
+        return {
+            type: 'cashMatrixCell',
+            title: `Sem movimentos registrados — ${details.monthLabel}`,
+            subtitle: indLabel,
+            metrics: [
+                { label: 'Valor', value: 'R$ 0,00', highlight: true },
+                { label: 'Movimentos', value: '0' }
+            ],
+            insight: {
+                title: 'Sem movimentação',
+                text: details.interpretation,
+                tone: 'info'
+            },
+            nextAction: details.nextAction,
+            source: 'vw_fluxo_caixa_realizado'
+        };
+    }
+
+    const metrics = [
+        { label: indLabel, value: formatCurrency(details.value), highlight: true },
+        { label: 'Quantidade de movimentos', value: formatNumber(details.movements.length, 0) }
+    ];
+
+    if (details.maxMovement) {
+        metrics.push({
+            label: 'Maior movimento',
+            value: formatCurrencyCompact(Math.abs(Number(details.maxMovement.valor)))
+        });
+    }
+    if (details.topAccount && details.topAccount !== '—') {
+        metrics.push({ label: 'Conta bancária principal', value: details.topAccount });
+    }
+    if (indicator === 'saldo_mes' && details.month) {
+        metrics.push({ label: 'Entradas do mês', value: formatCurrency(details.month.entradas) });
+        metrics.push({ label: 'Saídas do mês', value: formatCurrency(details.month.saidas) });
+    }
+    if (indicator === 'saldo_acumulado') {
+        metrics.push({ label: 'Entradas acumuladas', value: formatCurrency(details.accumulated.entradas) });
+        metrics.push({ label: 'Saídas acumuladas', value: formatCurrency(details.accumulated.saidas) });
+        if (details.month) metrics.push({ label: 'Saldo do mês', value: formatCurrency(details.month.saldoMes) });
+        metrics.push({
+            label: 'Menor liquidez do período',
+            value: details.isMinLiquidity ? 'Sim' : 'Não'
+        });
+    }
+
+    const categoryRows = details.categories.slice(0, 8).map(c => ({
+        label: c.categoria,
+        value: formatCurrencyCompact(c.valor),
+        meta: formatPct(c.pct)
+    }));
+
+    const movementRows = details.movements.slice(0, 12).map(m => ({
+        label: (m.descricao || m.categoria || 'Movimento').slice(0, 56),
+        value: formatCurrencyCompact(m.valor),
+        meta: `${(m.data_movimento || '').slice(0, 10)} · ${m.conta_bancaria || '—'}`
+    }));
+
+    const rows = [
+        ...(categoryRows.length ? categoryRows : []),
+        ...movementRows
+    ];
+
+    const tone = indicator === 'saidas' || details.value < 0 ? 'warn' : 'positive';
+
+    return {
+        type: 'cashMatrixCell',
+        title: details.title,
+        subtitle: 'Composição por categoria e movimentos relacionados',
+        status: indicator === 'saidas' || details.value < 0 ? 'attention' : 'ok',
+        statusLabel: indicator === 'saidas' ? 'Saída' : details.value >= 0 ? 'Positivo' : 'Negativo',
+        metrics,
+        rows: rows.length ? rows : undefined,
+        insight: {
+            title: 'Interpretação',
+            text: details.interpretation,
+            tone
+        },
+        nextAction: details.nextAction,
+        source: 'vw_fluxo_caixa_realizado'
+    };
+}
+
+function buildCashMovementDrill(movement, data) {
+    if (!movement) return null;
+    const monthKey = movement.data_movimento?.slice(0, 7);
+    const monthLabel = formatMonthLabel(monthKey);
+    const month = aggregateCashByMonth(data.fluxo).find(m => m.monthKey === monthKey);
+
+    return {
+        type: 'cashMovement',
+        title: movement.descricao || movement.categoria || 'Movimento de caixa',
+        subtitle: `${monthLabel} · ${movement.tipo === 'entrada' ? 'Entrada' : 'Saída'}`,
+        status: movement.tipo === 'entrada' ? 'ok' : 'attention',
+        statusLabel: movement.tipo === 'entrada' ? 'Entrada' : 'Saída',
+        metrics: [
+            { label: 'Data', value: (movement.data_movimento || '').slice(0, 10) },
+            { label: 'Tipo', value: movement.tipo === 'entrada' ? 'Entrada' : 'Saída' },
+            { label: 'Categoria', value: movement.categoria || '—' },
+            { label: 'Conta bancária', value: movement.conta_bancaria || '—' },
+            { label: 'Valor', value: formatCurrency(movement.valor), highlight: true },
+            { label: 'Saldo acumulado', value: formatCurrency(movement.saldo_acumulado) },
+            { label: 'Contexto do mês', value: month ? `${formatCurrencyCompact(month.saldoMes)} saldo mensal` : '—' }
+        ],
+        insight: {
+            title: 'Interpretação',
+            text: movement.tipo === 'entrada'
+                ? `Entrada de ${formatCurrencyCompact(movement.valor)} registrada em ${monthLabel}, impactando positivamente a liquidez.`
+                : `Saída de ${formatCurrencyCompact(Math.abs(Number(movement.valor)))} em ${monthLabel} — revisar categoria ${movement.categoria || 'operacional'}.`,
+            tone: movement.tipo === 'entrada' ? 'positive' : 'warn'
+        },
+        nextAction: movement.tipo === 'entrada'
+            ? 'Cruzar com contratos de comercialização e recebíveis previstos.'
+            : 'Validar necessidade operacional e impacto no capital de giro do mês.',
+        source: 'vw_fluxo_caixa_realizado'
+    };
 }
 
 function buildMachineDrill(equipamento, data) {
@@ -457,33 +590,47 @@ function buildKpiDrill(kpiId, data, context = {}) {
         'total-entradas': {
             title: 'Entradas de caixa',
             metrics: [{ label: 'Total entradas', value: formatCurrency(months.reduce((s, m) => s + m.entradas, 0)), highlight: true }],
-            rows: months.map(m => ({ label: m.monthLabel, value: formatCurrencyCompact(m.entradas) })),
+            rows: [
+                ...months.map(m => ({ label: m.monthLabel, value: formatCurrencyCompact(m.entradas), meta: 'mensal' })),
+                ...groupCashMovementsByCategory((data.fluxo || []).filter(r => r.tipo === 'entrada'))
+                    .slice(0, 6)
+                    .map(c => ({ label: c.categoria, value: formatCurrencyCompact(c.valor), meta: formatPct(c.pct) + ' · categoria' }))
+            ],
             source: 'vw_fluxo_caixa_realizado'
         },
         'total-saidas': {
             title: 'Saídas de caixa',
             metrics: [{ label: 'Total saídas', value: formatCurrency(months.reduce((s, m) => s + m.saidas, 0)), highlight: true }],
-            rows: months.map(m => ({ label: m.monthLabel, value: formatCurrencyCompact(m.saidas) })),
+            rows: [
+                ...months.map(m => ({ label: m.monthLabel, value: formatCurrencyCompact(m.saidas), meta: 'mensal' })),
+                ...groupCashMovementsByCategory((data.fluxo || []).filter(r => r.tipo === 'saida'))
+                    .slice(0, 6)
+                    .map(c => ({ label: c.categoria, value: formatCurrencyCompact(c.valor), meta: formatPct(c.pct) + ' · categoria' }))
+            ],
             source: 'vw_fluxo_caixa_realizado'
         },
         'saldo-final': {
             title: 'Saldo acumulado',
-            metrics: [{ label: 'Saldo final', value: formatCurrency(months.length ? months[months.length - 1].saldoAcumulado : 0), highlight: true }],
-            rows: months.map(m => ({ label: m.monthLabel, value: formatCurrencyCompact(m.saldoAcumulado) })),
+            metrics: [
+                { label: 'Saldo final', value: formatCurrency(months.length ? months[months.length - 1].saldoAcumulado : 0), highlight: true },
+                { label: 'Total entradas', value: formatCurrency(months.reduce((s, m) => s + m.entradas, 0)) },
+                { label: 'Total saídas', value: formatCurrency(months.reduce((s, m) => s + m.saidas, 0)) }
+            ],
+            rows: months.map(m => ({ label: m.monthLabel, value: formatCurrencyCompact(m.saldoAcumulado), meta: `Saldo mês ${formatCurrencyCompact(m.saldoMes)}` })),
             source: 'vw_fluxo_caixa_realizado'
         },
         'pressao-caixa': {
             title: 'Mês de maior pressão de caixa',
             action: () => {
                 const hot = [...months].sort((a, b) => b.pressao - a.pressao)[0];
-                return hot ? buildCashMonthDrill(hot.monthKey, hot.monthLabel, data) : null;
+                return hot ? buildCashMatrixCellDrill({ monthKey: hot.monthKey, indicator: 'saidas', monthLabel: hot.monthLabel }, data) : null;
             }
         },
         'maior-entrada': {
             title: 'Mês de maior entrada',
             action: () => {
                 const max = [...months].sort((a, b) => b.entradas - a.entradas)[0];
-                return max ? buildCashMonthDrill(max.monthKey, max.monthLabel, data) : null;
+                return max ? buildCashMatrixCellDrill({ monthKey: max.monthKey, indicator: 'entradas', monthLabel: max.monthLabel }, data) : null;
             }
         }
     };
@@ -712,6 +859,10 @@ export function resolveDrilldown(type, context = {}) {
             return buildCommercialDrill(context.cultura || context.name, data);
         case 'cashMonth':
             return buildCashMonthDrill(context.monthKey, context.monthLabel || context.name, data);
+        case 'cashMatrixCell':
+            return buildCashMatrixCellDrill(context, data);
+        case 'cashMovement':
+            return buildCashMovementDrill(context.movement, data);
         case 'machine':
             return buildMachineDrill(context.equipamento || context.name, data);
         case 'waterfallStep':

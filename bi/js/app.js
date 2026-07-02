@@ -5,28 +5,26 @@ import {
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=5.4.1';
+} from './api.js?v=5.5';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
     buildStockPanelInsights,
     renderInsightCards
-} from './insights.js?v=5.4.1';
+} from './insights.js?v=5.5';
 import {
     buildDecisionQuestions,
     buildCommercialSummary,
     buildCommercialInsights,
-    buildCashInsights,
-    aggregateCashByMonth,
     renderDecisionCards,
     renderSelectedQuestionPanel,
-    renderCommercialTable,
-    renderCashMatrix,
-    renderCashMobilePanel
-} from './decisionQuestions.js?v=5.4.1';
-import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.4.1';
-import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.4.1';
-import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.4.1';
+    renderCommercialTable
+} from './decisionQuestions.js?v=5.5';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.5';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.5';
+import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.5';
+import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.5';
+import { aggregateCashByMonth } from './cashFlow.js?v=5.5';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -38,7 +36,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=5.4.1';
+} from './charts.js?v=5.5';
 import {
     initFilters,
     loadFilterState,
@@ -50,7 +48,7 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=5.4.1';
+} from './filters.js?v=5.5';
 
 const charts = {};
 const chartsReady = new Set();
@@ -59,6 +57,7 @@ let decisionCards = [];
 let selectedDecisionId = null;
 let selectedCashMonthKey = null;
 let selectedDreSubTab = 'demonstrativo';
+let selectedCaixaSubTab = 'matriz';
 const DEBUG_BI = location.hostname === 'localhost' || location.search.includes('debug=1');
 const TABS = ['visao-geral', 'culturas', 'estoques', 'dre-gerencial', 'comercializacao', 'caixa', 'operacoes', 'perguntas', 'sobre'];
 const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
@@ -94,7 +93,7 @@ function rerenderDashboard() {
     renderEstoques(data.insumos, data.producao, false);
     renderDreGerencialTab(false);
     renderComercializacao(false);
-    renderCaixa(false);
+    renderCaixaTab(false);
     renderOperacoes(data.talhoes, data.maquinas, data.maoObra, false);
     renderPerguntas();
     updateFilterBanners();
@@ -289,7 +288,8 @@ function registerStaticDrillCoverage() {
     registerDrillCoverage('dre-gerencial', 'dre-balancete', 'accountingAccount', 'ok');
     registerDrillCoverage('dre-gerencial', 'dre-cultura-comp', 'cultureDre', 'ok');
     registerDrillCoverage('comercializacao', 'comercial-table', 'commercialCulture', 'ok');
-    registerDrillCoverage('caixa', 'cash-matrix', 'cashMonth', 'ok');
+    registerDrillCoverage('caixa', 'cash-matrix', 'cashMatrixCell', 'ok');
+    registerDrillCoverage('caixa', 'cash-movements', 'cashMovement', 'ok');
     registerDrillCoverage('perguntas', 'decision-cards', 'question', 'ok');
     registerDrillCoverage('perguntas', 'selected-question-panel', 'question', 'ok');
 }
@@ -348,7 +348,11 @@ function openCommercialCultureDrilldown(cultura) {
 }
 
 function openCashMonthDrilldown(month) {
-    openDrill('cashMonth', { monthKey: month.monthKey, monthLabel: month.monthLabel });
+    openDrill('cashMatrixCell', {
+        monthKey: month.monthKey,
+        monthLabel: month.monthLabel,
+        indicator: 'saldo_mes'
+    });
 }
 
 function selectDecision(id) {
@@ -449,62 +453,35 @@ function renderComercializacao(drawChart = false) {
     }
 }
 
-function setupCashMobile(months) {
-    const select = el('cash-month-select');
-    if (!select) return;
-
-    if (!selectedCashMonthKey || !months.find(m => m.monthKey === selectedCashMonthKey)) {
-        selectedCashMonthKey = months[0]?.monthKey || null;
-    }
-
-    select.innerHTML = months.map(m =>
-        `<option value="${m.monthKey}"${m.monthKey === selectedCashMonthKey ? ' selected' : ''}>${m.monthLabel}</option>`
-    ).join('');
-
-    select.onchange = () => {
-        selectedCashMonthKey = select.value;
-        renderCashMobilePanel(el('cash-mobile-cards'), months, selectedCashMonthKey);
-    };
-
-    renderCashMobilePanel(el('cash-mobile-cards'), months, selectedCashMonthKey);
-}
-
-function renderCaixa(drawChart = false) {
+function renderCaixaTab(drawChart = false) {
     const data = getData();
     const months = aggregateCashByMonth(data.fluxo);
-    const totalEntradas = months.reduce((s, m) => s + m.entradas, 0);
-    const totalSaidas = months.reduce((s, m) => s + m.saidas, 0);
-    const saldoFinal = months.length ? months[months.length - 1].saldoAcumulado : 0;
-    const maxPressao = months.length
-        ? [...months].sort((a, b) => b.pressao - a.pressao)[0]
-        : null;
-    const maxEntrada = months.length
-        ? [...months].sort((a, b) => b.entradas - a.entradas)[0]
-        : null;
+    if (!selectedCashMonthKey && months.length) selectedCashMonthKey = months[0].monthKey;
 
-    renderKpis('kpi-caixa', [
-        moneyKpi('Total de entradas', totalEntradas, 'Fluxo realizado agregado', 'positive', '', 'total-entradas'),
-        moneyKpi('Total de saídas', totalSaidas, 'Desembolsos do período', 'warn', '', 'total-saidas'),
-        moneyKpi('Saldo final', saldoFinal, 'Saldo acumulado no fim do período', saldoFinal >= 0 ? 'positive' : 'critical', '', 'saldo-final'),
-        { label: 'Mês de maior pressão', value: maxPressao?.monthLabel || '—', hint: maxPressao ? formatCurrencyCompact(maxPressao.pressao) + ' de pressão' : '', tone: 'warn', drillKpi: 'pressao-caixa' },
-        { label: 'Maior entrada mensal', value: maxEntrada?.monthLabel || '—', hint: maxEntrada ? formatCurrencyCompact(maxEntrada.entradas) : '', tone: 'positive', drillKpi: 'maior-entrada' }
-    ], 'caixa');
+    setupCashMobileSelect(months, selectedCashMonthKey, key => {
+        selectedCashMonthKey = key;
+        renderCaixaGerencial({
+            store: data,
+            charts,
+            setChart,
+            onDrill: openDrill,
+            subTab: selectedCaixaSubTab,
+            drawChart: false,
+            filterContext: getFilterContextLabel(filterState),
+            selectedMonthKey: selectedCashMonthKey
+        });
+    });
 
-    renderInsightCards(el('insights-caixa'), buildCashInsights(months));
-    renderCashMatrix(el('cash-matrix'), data.fluxo, openCashMonthDrilldown);
-    setupCashMobile(months);
-
-    if (!drawChart || !months.length) return;
-
-    setChart('chart-caixa-saldo', lineAreaOption(
-        months.map(m => m.monthLabel),
-        months.map(m => m.saldoAcumulado),
-        { rotate: months.length > 6 ? 28 : 0, interval: Math.max(0, Math.floor(months.length / 6)) }
-    ));
-    bindChartDrill('chart-caixa-saldo', params => {
-        const m = months[params.dataIndex];
-        if (m) openCashMonthDrilldown(m);
-    }, { section: 'caixa', element: 'chart-saldo', type: 'cashMonth' });
+    renderCaixaGerencial({
+        store: data,
+        charts,
+        setChart,
+        onDrill: openDrill,
+        subTab: selectedCaixaSubTab,
+        drawChart,
+        filterContext: getFilterContextLabel(filterState),
+        selectedMonthKey: selectedCashMonthKey
+    });
 }
 
 /* ─── Visão Geral ─── */
@@ -845,7 +822,7 @@ function refreshChartsForTab(tabId) {
                 renderComercializacao(true);
                 break;
             case 'caixa':
-                renderCaixa(true);
+                renderCaixaTab(selectedCaixaSubTab === 'visualizacoes');
                 break;
             case 'operacoes': {
                 const data = getData();
@@ -1018,6 +995,12 @@ async function loadDashboard() {
             const onDreTab = getCurrentTabId() === 'dre-gerencial';
             renderDreGerencialTab(tab === 'visualizacoes');
             if (onDreTab) requestAnimationFrame(resizeVisibleCharts);
+        });
+        initCaixaSubtabs(tab => {
+            selectedCaixaSubTab = tab;
+            const onCaixaTab = getCurrentTabId() === 'caixa';
+            renderCaixaTab(tab === 'visualizacoes');
+            if (onCaixaTab) requestAnimationFrame(resizeVisibleCharts);
         });
         setupChartResizeObserver();
         setupTabs();

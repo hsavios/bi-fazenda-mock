@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Perguntas do Gestor — respostas derivadas das views KPI já carregadas.
  */
 import {
@@ -7,10 +7,11 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.4.1';
-import { aggregateDreByCulture } from './insights.js?v=5.4.1';
+} from './api.js?v=5.5';
+import { aggregateDreByCulture } from './insights.js?v=5.5';
+import { aggregateCashByMonth } from './cashFlow.js?v=5.5';
 
-const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+export { aggregateCashByMonth };
 
 const RELATED_TAB_LABELS = {
     comercializacao: 'Ver comercialização',
@@ -102,44 +103,6 @@ function decisionCard(opts) {
         relatedTab: opts.relatedTab || null,
         payload: opts.payload || {}
     };
-}
-
-export function aggregateCashByMonth(fluxoRows) {
-    const map = new Map();
-    (fluxoRows || []).forEach(r => {
-        const d = r.data_movimento;
-        if (!d) return;
-        const key = d.slice(0, 7);
-        if (!map.has(key)) {
-            map.set(key, {
-                monthKey: key,
-                monthLabel: formatMonthLabel(key),
-                entradas: 0,
-                saidas: 0,
-                saldoAcumulado: 0,
-                movimentos: 0
-            });
-        }
-        const m = map.get(key);
-        const val = Number(r.valor || 0);
-        if (r.tipo === 'entrada') m.entradas += val;
-        else m.saidas += val;
-        m.saldoAcumulado = Number(r.saldo_acumulado || m.saldoAcumulado);
-        m.movimentos += 1;
-    });
-    return [...map.values()]
-        .map(m => ({
-            ...m,
-            saldoMes: m.entradas - m.saidas,
-            pressao: m.saidas - m.entradas
-        }))
-        .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
-}
-
-function formatMonthLabel(monthKey) {
-    const [y, m] = monthKey.split('-');
-    const mi = Number(m) - 1;
-    return `${MONTH_NAMES[mi] || m}/${y?.slice(2) || ''}`;
 }
 
 export function buildCommercialSummary(comercialRows) {
