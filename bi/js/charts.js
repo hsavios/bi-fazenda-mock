@@ -1,7 +1,7 @@
 ﻿/**
  * Builders ECharts — visualizações avançadas do cockpit.
  */
-import { formatCurrency, formatNumber, formatPct } from './api.js?v=5.5';
+import { formatCurrency, formatNumber, formatPct } from './api.js?v=5.7';
 
 export const CHART_COLORS = {
     primary: '#2d6a4f',
@@ -17,9 +17,19 @@ export const CHART_COLORS = {
 
 export const CHART_PALETTE = ['#2d6a4f', '#40916c', '#52b788', '#b8860b', '#74c69d', '#c0392b'];
 
-export const DRILL_HINT = '<br><span style="opacity:0.72;font-size:10px">Clique para detalhar</span>';
+export const CHART_GRIDS = {
+    vertical: { left: 56, right: 28, top: 34, bottom: 52, containLabel: true },
+    horizontal: { left: 120, right: 28, top: 30, bottom: 42, containLabel: true },
+    scatter: { left: 72, right: 28, top: 34, bottom: 58, containLabel: true },
+    heatmap: { left: 80, right: 30, top: 30, bottom: 58, containLabel: true },
+    pareto: { left: 56, right: 48, top: 34, bottom: 56, containLabel: true }
+};
 
-const baseGrid = { left: 48, right: 16, top: 28, bottom: 36, containLabel: false };
+const baseGrid = CHART_GRIDS.vertical;
+
+function mergeGrid(key, overrides = {}) {
+    return { ...CHART_GRIDS[key], ...overrides };
+}
 
 export function compactAxisMoney(v) {
     const n = Number(v);
@@ -64,10 +74,10 @@ export function waterfallOption(steps) {
                 const raw = values[idx];
                 const step = steps[idx];
                 const sign = step.type === 'subtract' ? '−' : '';
-                return `${step.label}<br>${sign}${formatCurrency(Math.abs(raw))}${DRILL_HINT}`;
+                return `${step.label}<br>${sign}${formatCurrency(Math.abs(raw))}`;
             }
         },
-        grid: { ...baseGrid, bottom: 48 },
+        grid: mergeGrid('vertical', { bottom: 56 }),
         xAxis: {
             type: 'category',
             data: labels,
@@ -111,7 +121,7 @@ export function treemapOption(items, valueFormatter = formatCurrency) {
         color: CHART_PALETTE,
         tooltip: {
             formatter(p) {
-                return `${p.name}<br>${valueFormatter(p.value)} (${formatPct(p.data?.pct || 0)})${DRILL_HINT}`;
+                return `${p.name}<br>${valueFormatter(p.value)} (${formatPct(p.data?.pct || 0)})`;
             }
         },
         series: [{
@@ -140,10 +150,10 @@ export function scatterBubbleOption(points) {
                 return `<strong>${d.name}</strong><br>
                     Produtividade: ${formatNumber(d.x, 1)} sc/ha<br>
                     Margem: ${formatPct(d.y)}<br>
-                    Receita: ${formatCurrency(d.receita)}${DRILL_HINT}`;
+                    Receita: ${formatCurrency(d.receita)}`;
             }
         },
-        grid: { ...baseGrid, left: 52, bottom: 52 },
+        grid: mergeGrid('scatter'),
         xAxis: {
             name: 'Produtividade (sc/ha)',
             nameLocation: 'middle',
@@ -186,7 +196,7 @@ export function horizontalBarOption(labels, values, opts = {}) {
                 return `${name}: ${formatter ? formatter(p[0].value) : p[0].value}`;
             }
         },
-        grid: { left: 8, right: 20, top: 8, bottom: 8, containLabel: true },
+        grid: mergeGrid('horizontal'),
         xAxis: { type: 'value', axisLabel: { fontSize: 10, formatter: opts.xFormatter } },
         yAxis: { type: 'category', data: labels, axisLabel: { fontSize: 11 } },
         series: [{ type: 'bar', data: values, barMaxWidth: maxWidth }]
@@ -211,11 +221,11 @@ export function paretoOption(labels, values, valueFormatter = formatCurrency) {
                 let html = `${bar?.name || ''}<br>`;
                 if (bar) html += `Custo: ${valueFormatter(bar.value)}<br>`;
                 if (line) html += `Acumulado: ${line.value}%`;
-                return html + DRILL_HINT;
+                return html;
             }
         },
         legend: { data: ['Custo', 'Acumulado'], bottom: 0, textStyle: { fontSize: 10 } },
-        grid: { ...baseGrid, bottom: 52 },
+        grid: mergeGrid('pareto'),
         xAxis: {
             type: 'category',
             data: labels,
@@ -247,11 +257,11 @@ export function stackedBarOption(categories, series) {
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
             formatter(params) {
-                return params.map(p => `${p.marker} ${p.seriesName}: ${formatCurrency(p.value)}`).join('<br>') + DRILL_HINT;
+                return params.map(p => `${p.marker} ${p.seriesName}: ${formatCurrency(p.value)}`).join('<br>');
             }
         },
         legend: { bottom: 0, textStyle: { fontSize: 10 } },
-        grid: { ...baseGrid, bottom: 52 },
+        grid: mergeGrid('vertical', { bottom: 56 }),
         xAxis: {
             type: 'category',
             data: categories,
@@ -281,10 +291,10 @@ export function heatmapOption(xLabels, yLabels, matrix) {
         tooltip: {
             position: 'top',
             formatter(p) {
-                return `${yLabels[p.data[1]]} · ${xLabels[p.data[0]]}<br>Custo: ${formatCurrency(p.data[2])}${DRILL_HINT}`;
+                return `${yLabels[p.data[1]]} · ${xLabels[p.data[0]]}<br>Custo: ${formatCurrency(p.data[2])}`;
             }
         },
-        grid: { left: 72, right: 16, top: 16, bottom: 48 },
+        grid: mergeGrid('heatmap', { bottom: 72 }),
         xAxis: {
             type: 'category',
             data: xLabels,
@@ -322,9 +332,9 @@ export function lineAreaOption(labels, values, opts = {}) {
         color: [CHART_COLORS.primary],
         tooltip: {
             trigger: 'axis',
-            formatter: p => `${p[0].axisValue}<br>Saldo: ${formatCurrency(p[0].value)}${DRILL_HINT}`
+            formatter: p => `${p[0].axisValue}<br>Saldo: ${formatCurrency(p[0].value)}`
         },
-        grid: { ...baseGrid, bottom: 48 },
+        grid: mergeGrid('vertical', { bottom: 48 }),
         xAxis: {
             type: 'category',
             data: labels,
@@ -346,11 +356,15 @@ export function comboBarLineOption(categories, barSeries, lineSeries) {
         color: CHART_PALETTE,
         tooltip: {
             trigger: 'axis',
-            formatter: params => params.map(p => `${p.marker} ${p.seriesName}: ${p.value}`).join('<br>') + DRILL_HINT
+            formatter: params => params.map(p => `${p.marker} ${p.seriesName}: ${p.value}`).join('<br>')
         },
         legend: { bottom: 0, textStyle: { fontSize: 10 } },
-        grid: { ...baseGrid, bottom: 52 },
-        xAxis: { type: 'category', data: categories, axisLabel: { fontSize: 10 } },
+        grid: mergeGrid('vertical', { bottom: 56 }),
+        xAxis: {
+            type: 'category',
+            data: categories,
+            axisLabel: { fontSize: 10, interval: 0, rotate: categories.length > 5 ? 18 : 0 }
+        },
         yAxis: [
             { type: 'value', axisLabel: { fontSize: 10, formatter: compactAxisMoney } },
             { type: 'value', name: 'h', axisLabel: { fontSize: 10 } }

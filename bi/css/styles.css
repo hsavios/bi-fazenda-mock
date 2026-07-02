@@ -732,7 +732,7 @@ body.filter-open { overflow: hidden; }
     padding: 0 0.1rem 0.2rem;
 }
 
-.chart-card:not(.operations-chart-card):has(.chart)::after {
+.chart-card:not(.operations-chart-card):not(.bi-chart-card):has(.chart)::after {
     content: 'Clique nos elementos para detalhar';
     display: block;
     font-size: 0.62rem;
@@ -743,16 +743,99 @@ body.filter-open { overflow: hidden; }
     flex-shrink: 0;
 }
 
+/* ─── Infraestrutura padrão de gráficos BI ─── */
+.bi-chart-card,
+.chart-card.operations-chart-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 340px;
+    height: 100%;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--border-light);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+    padding: 0;
+}
+
+.bi-chart-card::after,
+.chart-card.operations-chart-card::after {
+    content: none !important;
+    display: none !important;
+}
+
+.bi-chart-card__header,
+.operations-chart-card .chart-card-header {
+    flex: 0 0 auto;
+    padding: 14px 16px 6px;
+}
+
+.bi-chart-card__header h3,
+.operations-chart-card .chart-card-header h3 {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.2;
+    font-weight: 700;
+    color: var(--accent-dark);
+}
+
+.bi-chart-card__header p,
+.operations-chart-card .chart-card-header p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    line-height: 1.25;
+    color: var(--muted);
+}
+
+.bi-chart-card__body,
+.operations-chart-card .chart-card-body {
+    flex: 1 1 auto;
+    min-height: 260px;
+    padding: 0 12px;
+    position: relative;
+}
+
+.bi-chart-card__body .bi-chart,
+.bi-chart-card__body .chart,
+.operations-chart-card .chart-card-body .chart {
+    width: 100%;
+    height: 100%;
+    min-height: 260px;
+}
+
+.bi-chart--sm,
+.chart--sm { min-height: 260px; height: 260px; }
+
+.bi-chart--md,
+.chart--md { min-height: 300px; height: 300px; }
+
+.bi-chart--lg,
+.chart--lg { min-height: 340px; height: 340px; }
+
+.bi-chart--heatmap,
+.chart--heatmap { min-height: 280px; height: 280px; }
+
+.bi-chart-card__footer,
+.operations-chart-card .chart-card-footer {
+    flex: 0 0 auto;
+    padding: 7px 14px 10px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--muted);
+    border-top: 1px solid rgba(20, 40, 30, 0.07);
+    margin-top: 0;
+}
+
 .chart-body {
     flex: 1;
-    min-height: 0;
+    min-height: 220px;
     position: relative;
 }
 
 .chart {
     width: 100%;
     height: 100%;
-    min-height: 200px;
+    min-height: 220px;
 }
 
 /* ─── Insights ─── */
@@ -2285,73 +2368,6 @@ th.cash-matrix--hot {
     padding: 0.65rem;
     max-height: 720px;
     overflow-y: auto;
-}
-
-.operations-chart-card {
-    display: flex;
-    flex-direction: column;
-    min-height: 320px;
-    height: 100%;
-    overflow: hidden;
-    padding: 0;
-}
-
-.operations-chart-card::after {
-    content: none !important;
-    display: none !important;
-}
-
-.operations-chart-card .chart-card-header {
-    padding: 14px 16px 6px;
-    flex: 0 0 auto;
-}
-
-.operations-chart-card .chart-card-header h3 {
-    font-size: 0.74rem;
-    font-weight: 700;
-    color: var(--accent-dark);
-    margin: 0;
-    padding: 0;
-}
-
-.operations-chart-card .chart-card-header p {
-    font-size: 0.65rem;
-    color: var(--muted);
-    margin: 0.15rem 0 0;
-    padding: 0;
-}
-
-.operations-chart-card .chart-card-body {
-    flex: 1 1 auto;
-    min-height: 220px;
-    padding: 0 10px;
-    position: relative;
-}
-
-.operations-chart-card .chart-card-body .chart {
-    width: 100%;
-    height: 100%;
-    min-height: 220px;
-}
-
-.operations-chart-card .chart--sm { min-height: 260px; height: 260px; }
-.operations-chart-card .chart--md { min-height: 300px; height: 300px; }
-.operations-chart-card .chart--lg { min-height: 340px; height: 340px; }
-.operations-chart-card .chart--heatmap { min-height: 280px; height: 280px; }
-
-@media (min-width: 1600px) {
-    .operations-chart-card .chart--md { min-height: 320px; height: 320px; }
-    .operations-chart-card .chart--lg { min-height: 360px; height: 360px; }
-    .operations-chart-card .chart--heatmap { min-height: 300px; height: 300px; }
-}
-
-.operations-chart-card .chart-card-footer {
-    flex: 0 0 auto;
-    padding: 6px 14px 10px;
-    font-size: 11px;
-    color: var(--muted);
-    border-top: 1px solid rgba(20, 40, 30, 0.06);
-    margin-top: 0;
 }
 
 .field-maquinas-wrap {

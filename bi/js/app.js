@@ -5,13 +5,13 @@
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=5.6';
+} from './api.js?v=5.7';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
     buildStockPanelInsights,
     renderInsightCards
-} from './insights.js?v=5.6';
+} from './insights.js?v=5.7';
 import {
     buildDecisionQuestions,
     buildCommercialSummary,
@@ -19,19 +19,20 @@ import {
     renderDecisionCards,
     renderSelectedQuestionPanel,
     renderCommercialTable
-} from './decisionQuestions.js?v=5.6';
-import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.6';
-import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.6';
-import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.6';
-import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.6';
-import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.6';
+} from './decisionQuestions.js?v=5.7';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.7';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.7';
+import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.7';
+import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.7';
+import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.7';
 import {
     registerBiChart,
     unregisterBiChart,
-    isChartNodeVisible,
-    scheduleChartResize
-} from './chartResize.js?v=5.6';
-import { aggregateCashByMonth } from './cashFlow.js?v=5.6';
+    resizeVisibleCharts,
+    scheduleChartResize,
+    installChartDebugGlobals
+} from './chartResize.js?v=5.7';
+import { aggregateCashByMonth } from './cashFlow.js?v=5.7';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -43,7 +44,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=5.6';
+} from './charts.js?v=5.7';
 import {
     initFilters,
     loadFilterState,
@@ -55,7 +56,7 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=5.6';
+} from './filters.js?v=5.7';
 
 const charts = {};
 const chartsReady = new Set();
@@ -108,6 +109,7 @@ function rerenderDashboard() {
     filterUI?.updateChrome(filterState);
     const tabId = getCurrentTabId();
     refreshChartsForTab(tabId);
+    scheduleChartResize(resizeVisibleCharts);
 }
 
 function el(id) {
@@ -145,21 +147,6 @@ function bindChartDrill(chartId, handler, coverage) {
     }
 }
 
-function resizeVisibleCharts() {
-    const activePanel = document.querySelector('.view-panel.active');
-    if (!activePanel) return;
-    let count = 0;
-    activePanel.querySelectorAll('.chart').forEach(node => {
-        if (!isChartNodeVisible(node)) return;
-        const chart = charts[node.id];
-        if (chart) {
-            try { chart.resize(); } catch (_) { /* ignore */ }
-            count += 1;
-        }
-    });
-    if (DEBUG_BI) console.log('[BI] charts resized', count);
-}
-
 function resizeCharts() {
     scheduleChartResize(resizeVisibleCharts);
 }
@@ -167,17 +154,19 @@ function resizeCharts() {
 function setupChartResizeObserver() {
     if (chartResizeObserver || typeof ResizeObserver === 'undefined') return;
     chartResizeObserver = new ResizeObserver(() => {
-        resizeVisibleCharts();
+        scheduleChartResize(resizeVisibleCharts);
     });
     observeChartContainers();
 }
 
 function observeChartContainers() {
     if (!chartResizeObserver) return;
-    document.querySelectorAll('.chart-body, .chart-card-body, .operations-chart-card, .operations-visual-panel, .operations-maquinas-viz-panel').forEach(el => {
-        if (el.dataset.resizeObserved) return;
-        el.dataset.resizeObserved = '1';
-        chartResizeObserver.observe(el);
+    document.querySelectorAll(
+        '.chart-body, .bi-chart-card__body, .chart-card-body, .bi-chart-card, .operations-visual-panel, .operations-maquinas-viz-panel'
+    ).forEach(node => {
+        if (node.dataset.resizeObserved) return;
+        node.dataset.resizeObserved = '1';
+        chartResizeObserver.observe(node);
     });
 }
 
@@ -775,10 +764,7 @@ function renderOperacoesTab(drawChart = false) {
 
 function refreshChartsForTab(tabId) {
     if (chartsReady.has(tabId)) {
-        requestAnimationFrame(() => {
-            resizeVisibleCharts();
-            requestAnimationFrame(resizeVisibleCharts);
-        });
+        scheduleChartResize(resizeVisibleCharts);
         return;
     }
     try {
@@ -968,8 +954,9 @@ async function loadDashboard() {
             getFilterContext: () => getFilterContextLabel(filterState)
         });
         initDrilldown(() => {
-            requestAnimationFrame(resizeVisibleCharts);
+            scheduleChartResize(resizeVisibleCharts);
         });
+        installChartDebugGlobals();
         registerStaticDrillCoverage();
         bindDrilldownClicks();
         bindDecisionClicks();
@@ -977,13 +964,13 @@ async function loadDashboard() {
             selectedDreSubTab = tab;
             const onDreTab = getCurrentTabId() === 'dre-gerencial';
             renderDreGerencialTab(tab === 'visualizacoes');
-            if (onDreTab) requestAnimationFrame(resizeVisibleCharts);
+            if (onDreTab) scheduleChartResize(resizeVisibleCharts);
         });
         initCaixaSubtabs(tab => {
             selectedCaixaSubTab = tab;
             const onCaixaTab = getCurrentTabId() === 'caixa';
             renderCaixaTab(tab === 'visualizacoes');
-            if (onCaixaTab) requestAnimationFrame(resizeVisibleCharts);
+            if (onCaixaTab) scheduleChartResize(resizeVisibleCharts);
         });
         initOperacoesSubtabs(tab => {
             selectedOperacoesSubTab = tab;
