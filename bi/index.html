@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="BI Agro — demonstração interativa com dados fictícios">
+    <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=3.3">
+    <link rel="stylesheet" href="css/styles.css?v=4.0">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=3.3"></script>
+    <script type="module" src="js/app.js?v=4.0"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -15,7 +15,7 @@
             <div class="app-header-main">
                 <div class="app-brand">
                     <h1>BI Agro — Fazenda Mock</h1>
-                    <p class="app-tagline">Da planilha ao painel inteligente para gestão agrícola</p>
+                    <p class="app-tagline">Cockpit executivo de gestão agrícola</p>
                 </div>
                 <span class="badge">Dados fictícios</span>
             </div>
@@ -25,12 +25,31 @@
         </header>
 
         <nav class="app-nav" aria-label="Seções do painel">
-            <button type="button" class="tab active" data-tab="visao-geral">Visão Geral</button>
-            <button type="button" class="tab" data-tab="culturas">Culturas</button>
-            <button type="button" class="tab" data-tab="estoques">Estoques</button>
-            <button type="button" class="tab" data-tab="financeiro">Financeiro</button>
-            <button type="button" class="tab" data-tab="operacoes">Operações</button>
-            <button type="button" class="tab" data-tab="sobre">Sobre</button>
+            <button type="button" class="tab active" data-tab="visao-geral">
+                <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+                <span class="tab-label">Visão Geral</span>
+            </button>
+            <button type="button" class="tab" data-tab="culturas">
+                <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22V12"/><path d="M12 12C12 8 8 4 4 4c0 4 4 8 8 8z"/><path d="M12 12c0-4 4-8 8-8 0 4-4 8-8 8z"/></svg></span>
+                <span class="tab-label">Culturas</span>
+            </button>
+            <button type="button" class="tab" data-tab="estoques">
+                <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
+                <span class="tab-label">Estoques</span>
+            </button>
+            <button type="button" class="tab" data-tab="financeiro">
+                <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+                <span class="tab-label">Financeiro</span>
+            </button>
+            <button type="button" class="tab" data-tab="operacoes">
+                <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></span>
+                <span class="tab-label">Operações</span>
+            </button>
+            <div class="nav-separator" aria-hidden="true"></div>
+            <button type="button" class="tab tab--muted" data-tab="sobre">
+                <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+                <span class="tab-label">Sobre a solução</span>
+            </button>
         </nav>
 
         <main class="app-main" id="app-main">
@@ -45,77 +64,164 @@
             </div>
 
             <div id="app-views" class="app-views hidden">
-                <!-- Visão Geral -->
+                <!-- Visão Geral Executiva -->
                 <section id="visao-geral" class="view-panel active" data-view="visao-geral">
                     <div class="view-head">
-                        <h2>Visão geral da safra</h2>
+                        <h2>Cockpit executivo da safra</h2>
+                        <p class="view-subtitle">Indicadores consolidados com narrativa interpretativa</p>
                     </div>
-                    <div class="kpi-row" id="kpi-overview"></div>
-                    <div class="chart-panel chart-panel--hero">
-                        <h3>Receita e resultado por cultura</h3>
-                        <div id="chart-overview" class="chart chart--hero"></div>
+                    <div class="kpi-row kpi-row--6" id="kpi-overview"></div>
+                    <div class="cockpit-layout">
+                        <div class="cockpit-main">
+                            <div class="chart-grid chart-grid--2">
+                                <div class="chart-panel">
+                                    <h3>Ponte do resultado</h3>
+                                    <p class="chart-desc">Receita → custos → despesas → resultado</p>
+                                    <div id="chart-waterfall-exec" class="chart chart--tall"></div>
+                                </div>
+                                <div class="chart-panel">
+                                    <h3>Contribuição por cultura</h3>
+                                    <p class="chart-desc">Participação no resultado consolidado</p>
+                                    <div id="chart-treemap-cultura" class="chart chart--tall"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <aside class="insights-panel">
+                            <h3 class="insights-heading">Insights automáticos</h3>
+                            <div id="insights-overview" class="insights-list"></div>
+                        </aside>
                     </div>
                 </section>
 
                 <!-- Culturas -->
                 <section id="culturas" class="view-panel" data-view="culturas">
                     <div class="view-head">
-                        <h2>Resultado por cultura</h2>
+                        <h2>Análise comparativa de culturas</h2>
+                        <p class="view-subtitle">Eficiência produtiva versus retorno econômico</p>
                     </div>
+                    <div class="chart-grid chart-grid--2">
+                        <div class="chart-panel">
+                            <h3>Produtividade × margem</h3>
+                            <p class="chart-desc">Tamanho da bolha = receita · cor = status</p>
+                            <div id="chart-scatter-cultura" class="chart chart--tall"></div>
+                        </div>
+                        <div class="chart-panel">
+                            <h3>Ranking de margem</h3>
+                            <div id="chart-margem-cultura" class="chart chart--tall"></div>
+                        </div>
+                    </div>
+                    <h3 class="block-title">Culturas monitoradas</h3>
                     <div id="culture-cards" class="culture-grid"></div>
                 </section>
 
                 <!-- Estoques -->
                 <section id="estoques" class="view-panel" data-view="estoques">
                     <div class="view-head">
-                        <h2>Estoques</h2>
+                        <h2>Gestão de estoques</h2>
+                        <p class="view-subtitle">Produção armazenada e insumos críticos</p>
                     </div>
-                    <div class="kpi-row kpi-row--3" id="kpi-estoques"></div>
-                    <div class="chart-panel">
-                        <h3>Produção armazenada (sacas)</h3>
-                        <div id="chart-estoque-prod" class="chart chart--bar-h"></div>
+                    <div class="kpi-row kpi-row--4" id="kpi-estoques"></div>
+                    <div class="chart-grid chart-grid--2">
+                        <div class="chart-panel">
+                            <h3>Produção armazenada (sacas)</h3>
+                            <div id="chart-estoque-prod" class="chart chart--bar-h"></div>
+                        </div>
+                        <div class="chart-panel">
+                            <h3>Treemap de insumos por valor</h3>
+                            <div id="chart-treemap-insumos" class="chart chart--tall"></div>
+                        </div>
                     </div>
-                    <h3 class="block-title">Insumos em estoque</h3>
-                    <div id="cards-estoque-ins" class="card-scroll"></div>
+                    <div class="section-split">
+                        <div>
+                            <h3 class="block-title">Top 5 insumos por valor</h3>
+                            <div id="ranking-insumos" class="ranking-table"></div>
+                        </div>
+                        <aside class="insights-panel insights-panel--inline">
+                            <h3 class="insights-heading">Insights de estoque</h3>
+                            <div id="insights-estoques" class="insights-list"></div>
+                        </aside>
+                    </div>
                 </section>
 
                 <!-- Financeiro -->
                 <section id="financeiro" class="view-panel" data-view="financeiro">
                     <div class="view-head">
-                        <h2>Financeiro</h2>
+                        <h2>Visão financeira executiva</h2>
+                        <p class="view-subtitle">DRE, fluxo de caixa e composição de custos</p>
                     </div>
                     <div class="kpi-row kpi-row--4" id="kpi-financeiro"></div>
+                    <div class="chart-grid chart-grid--2">
+                        <div class="chart-panel">
+                            <h3>Waterfall DRE consolidado</h3>
+                            <div id="chart-waterfall-dre" class="chart chart--tall"></div>
+                        </div>
+                        <div class="chart-panel">
+                            <h3>Composição de custos por cultura</h3>
+                            <div id="chart-custos-stack" class="chart chart--tall"></div>
+                        </div>
+                    </div>
                     <div class="chart-panel">
                         <h3>Fluxo de caixa — saldo acumulado</h3>
                         <div id="chart-fluxo" class="chart"></div>
                     </div>
                     <h3 class="block-title">DRE gerencial por cultura</h3>
-                    <div id="cards-dre" class="card-scroll"></div>
+                    <div id="cards-dre" class="dre-grid"></div>
                 </section>
 
                 <!-- Operações -->
                 <section id="operacoes" class="view-panel" data-view="operacoes">
                     <div class="view-head">
-                        <h2>Custos e operações</h2>
+                        <h2>Análise operacional</h2>
+                        <p class="view-subtitle">Talhões, máquinas e concentração de custos</p>
                     </div>
-                    <h3 class="block-title">Maiores custos por talhão</h3>
-                    <div id="cards-talhao" class="card-scroll"></div>
-                    <div class="chart-panel">
-                        <h3>Uso de máquinas (horas)</h3>
-                        <div id="chart-maquinas" class="chart chart--bar-h"></div>
+                    <div class="chart-grid chart-grid--2">
+                        <div class="chart-panel">
+                            <h3>Pareto de custos por talhão</h3>
+                            <p class="chart-desc">Concentração acumulada de custo operacional</p>
+                            <div id="chart-pareto-talhao" class="chart chart--tall"></div>
+                        </div>
+                        <div class="chart-panel">
+                            <h3>Heatmap talhão × cultura</h3>
+                            <p class="chart-desc">Intensidade de custo operacional</p>
+                            <div id="chart-heatmap-talhao" class="chart chart--tall"></div>
+                        </div>
                     </div>
-                    <h3 class="block-title">Mão de obra por equipe</h3>
-                    <div id="chart-mao-obra" class="chart chart--short"></div>
+                    <div class="chart-grid chart-grid--2">
+                        <div class="chart-panel">
+                            <h3>Ranking de resultado por talhão</h3>
+                            <div id="chart-ranking-talhao" class="chart chart--bar-h"></div>
+                        </div>
+                        <div class="chart-panel">
+                            <h3>Uso de máquinas — horas e custo</h3>
+                            <div id="chart-maquinas" class="chart chart--tall"></div>
+                        </div>
+                    </div>
+                    <div class="section-split">
+                        <div>
+                            <h3 class="block-title">Talhões em destaque</h3>
+                            <div id="cards-talhao" class="talhao-grid"></div>
+                        </div>
+                        <aside class="insights-panel insights-panel--inline">
+                            <h3 class="insights-heading">Insights operacionais</h3>
+                            <div id="insights-operacoes" class="insights-list"></div>
+                        </aside>
+                    </div>
                 </section>
 
                 <!-- Sobre -->
                 <section id="sobre" class="view-panel view-panel--sobre" data-view="sobre">
                     <div class="sobre-card">
+                        <span class="sobre-badge">Demonstração pública</span>
                         <h2>Sua empresa ainda controla isso em planilhas?</h2>
                         <p>
                             Esta demonstração mostra como dados operacionais, financeiros e produtivos podem ser
                             estruturados em uma aplicação web de inteligência para gestão agrícola.
                         </p>
+                        <ul class="sobre-features">
+                            <li>Dados fictícios em ambiente seguro e somente leitura</li>
+                            <li>Cockpit executivo com drill-down e insights automáticos</li>
+                            <li>Prova de conceito aplicável a operações reais de qualquer porte</li>
+                        </ul>
                         <p>
                             Eu transformo controles operacionais em aplicações web, dashboards e bases de dados
                             estruturadas para que a gestão seja mais rápida, confiável e visual.
@@ -135,5 +241,21 @@
         </main>
     </div>
 
+    <!-- Drill-down drawer -->
+    <div id="drilldown-backdrop" class="drilldown-backdrop" aria-hidden="true"></div>
+    <aside id="drilldown-drawer" class="drilldown-drawer" aria-hidden="true" role="dialog" aria-labelledby="drilldown-title">
+        <header class="drilldown-header">
+            <div>
+                <h2 id="drilldown-title" class="drilldown-title"></h2>
+                <p id="drilldown-subtitle" class="drilldown-subtitle"></p>
+            </div>
+            <div class="drilldown-header-actions">
+                <span id="drilldown-status" class="status-pill hidden"></span>
+                <button type="button" id="drilldown-close" class="drilldown-close" aria-label="Fechar painel">×</button>
+            </div>
+        </header>
+        <div id="drilldown-body" class="drilldown-body"></div>
+        <div id="drilldown-insight" class="drilldown-insight hidden"></div>
+    </aside>
 </body>
 </html>

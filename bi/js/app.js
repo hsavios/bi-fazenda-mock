@@ -5,14 +5,37 @@ import {
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=3.3';
+} from './api.js?v=4.0';
+import {
+    aggregateDreByCulture,
+    buildExecutiveInsights,
+    buildCultureInsights,
+    buildStockInsights,
+    buildStockPanelInsights,
+    buildTalhaoInsight,
+    buildFinancialInsight,
+    buildOperationsInsights,
+    renderInsightCards
+} from './insights.js?v=4.0';
+import { initDrilldown, openDrilldown } from './drilldown.js?v=4.0';
+import {
+    CHART_COLORS,
+    waterfallOption,
+    treemapOption,
+    scatterBubbleOption,
+    horizontalBarOption,
+    paretoOption,
+    stackedBarOption,
+    heatmapOption,
+    lineAreaOption,
+    comboBarLineOption
+} from './charts.js?v=4.0';
 
 const charts = {};
 const chartsReady = new Set();
 const TABS = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'operacoes', 'sobre'];
 const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
 
-/** Dados carregados — usados para render lazy dos gráficos */
 let store = {};
 
 function el(id) {
@@ -27,62 +50,14 @@ function initChart(id) {
     return charts[id];
 }
 
+function setChart(id, option) {
+    const chart = initChart(id);
+    if (chart) chart.setOption(option, true);
+    return chart;
+}
+
 function resizeCharts() {
     Object.values(charts).forEach(c => c?.resize());
-}
-
-function kpiCard(label, value, className = '', fullValue = '') {
-    const title = fullValue ? ` title="${fullValue.replace(/"/g, '&quot;')}"` : '';
-    return `
-        <div class="kpi-card">
-            <div class="kpi-label">${label}</div>
-            <div class="kpi-value ${className}"${title}>${value}</div>
-        </div>
-    `;
-}
-
-function renderKpis(containerId, items) {
-    const container = el(containerId);
-    if (!container) return;
-    container.innerHTML = items.map(item =>
-        kpiCard(item.label, item.value, item.className || '', item.full || '')
-    ).join('');
-}
-
-function renderDataCards(containerId, cards) {
-    const container = el(containerId);
-    if (!container) return;
-    if (!cards.length) {
-        container.innerHTML = '<p class="data-card">Sem registros.</p>';
-        return;
-    }
-    container.innerHTML = cards.map(card => `
-        <article class="data-card">
-            <div class="data-card-title">${card.title}</div>
-            ${card.rows.map(r => `
-                <div class="data-row">
-                    <span>${r.label}</span>
-                    <span${r.title ? ` title="${r.title}"` : ''}>${r.value}</span>
-                </div>
-            `).join('')}
-        </article>
-    `).join('');
-}
-
-function aggregateByCulture(dreRows) {
-    const map = new Map();
-    dreRows.forEach(r => {
-        const name = r.cultura_nome || 'Consolidado';
-        if (!map.has(name)) {
-            map.set(name, { cultura_nome: name, receita_bruta: 0, custos_variaveis: 0, custos_fixos: 0, resultado: 0 });
-        }
-        const agg = map.get(name);
-        agg.receita_bruta += Number(r.receita_bruta || 0);
-        agg.custos_variaveis += Number(r.custos_variaveis || 0);
-        agg.custos_fixos += Number(r.custos_fixos || 0);
-        agg.resultado += Number(r.resultado || 0);
-    });
-    return [...map.values()];
 }
 
 function sortCultures(names) {
@@ -110,123 +85,348 @@ function avgProdutividadeByCulture(prodRows) {
     return result;
 }
 
-function moneyKpi(label, n, className = '') {
+function pctShare(value, total) {
+    if (!total) return 0;
+    return (Number(value) / Number(total)) * 100;
+}
+
+function statusFromMargin(margemPct) {
+    if (margemPct >= 15) return { status: 'ok', label: 'Positivo', tone: 'positive' };
+    if (margemPct >= 0) return { status: 'attention', label: 'Atenção', tone: 'warn' };
+    return { status: 'negative', label: 'Crítico', tone: 'critical' };
+}
+
+function kpiPremium(label, value, hint, tone = '', className = '', fullValue = '') {
+    const title = fullValue ? ` title="${fullValue.replace(/"/g, '&quot;')}"` : '';
+    return `
+        <div class="kpi-card kpi-card--${tone || 'default'}">
+            <div class="kpi-label">${label}</div>
+            <div class="kpi-value ${className}"${title}>${value}</div>
+            ${hint ? `<div class="kpi-hint">${hint}</div>` : ''}
+        </div>
+    `;
+}
+
+function renderKpis(containerId, items) {
+    const container = el(containerId);
+    if (!container) return;
+    container.innerHTML = items.map(item =>
+        kpiPremium(item.label, item.value, item.hint || '', item.tone || '', item.className || '', item.full || '')
+    ).join('');
+}
+
+function moneyKpi(label, n, hint = '', tone = '', className = '') {
     return {
         label,
         value: formatCurrencyCompact(n),
         full: formatCurrency(n),
+        hint,
+        tone,
         className
     };
 }
 
-function renderOverview(dre, margem, custoHa, comercial, drawChart = false) {
-    const byCulture = aggregateByCulture(dre);
+/* ─── Drill-down builders ─── */
+
+function openCultureDrilldown(nome) {
+    const byCulture = aggregateDreByCulture(store.dre || []);
+    const row = byCulture.find(c => c.cultura_nome === nome) || {};
+    const margem = (store.margem || []).find(m => m.cultura_nome === nome) || {};
+    const resultado = (store.resultado || []).find(r => r.cultura_nome === nome) || {};
+    const prodMap = avgProdutividadeByCulture(store.produtividade || []);
     const receitaTotal = sumField(byCulture, 'receita_bruta');
-    const custoTotal = byCulture.reduce((s, r) => s + Number(r.custos_variaveis || 0) + Number(r.custos_fixos || 0), 0);
-    const margemBrutaTotal = sumField(margem, 'margem_bruta');
-    const culturas = new Set(byCulture.map(r => r.cultura_nome).filter(Boolean));
+    const estoque = (store.producao || [])
+        .filter(p => p.cultura_nome === nome)
+        .reduce((s, p) => s + Number(p.quantidade_atual_sc || 0), 0);
+    const talhoes = (store.talhoes || [])
+        .filter(t => t.cultura_nome === nome)
+        .sort((a, b) => Number(b.custo_total) - Number(a.custo_total))
+        .slice(0, 3);
+    const margemPct = row.receita_bruta ? (Number(row.resultado) / Number(row.receita_bruta)) * 100 : 0;
+    const st = statusFromMargin(margemPct);
+    const insight = buildCultureInsights(store, nome)[0];
+
+    openDrilldown({
+        title: `Análise da cultura — ${nome}`,
+        subtitle: `${formatPct(pctShare(row.receita_bruta, receitaTotal))} da receita total`,
+        status: st.status,
+        statusLabel: st.label,
+        metrics: [
+            { label: 'Receita', value: formatCurrency(row.receita_bruta), title: formatCurrency(row.receita_bruta) },
+            { label: 'Custo total', value: formatCurrencyCompact(Number(row.custos_variaveis) + Number(row.custos_fixos)) },
+            { label: 'Resultado', value: formatCurrency(row.resultado), highlight: true },
+            { label: 'Margem %', value: formatPct(margemPct) },
+            { label: 'Produtividade média', value: prodMap.has(nome) ? formatNumber(prodMap.get(nome), 1) + ' sc/ha' : '—' },
+            { label: 'Estoque (sc)', value: formatNumber(estoque, 0) },
+            { label: 'Talhões principais', value: talhoes.map(t => t.talhao_codigo).join(', ') || '—' },
+            { label: 'Custos variáveis', value: formatCurrencyCompact(row.custos_variaveis || resultado.custos_variaveis) },
+            { label: 'Despesas / fixos', value: formatCurrencyCompact(row.custos_fixos || resultado.custos_fixos) }
+        ],
+        insight
+    });
+}
+
+function openTalhaoDrilldown(talhaoCodigo) {
+    const t = (store.talhoes || []).find(x => x.talhao_codigo === talhaoCodigo);
+    if (!t) return;
+    const prod = (store.produtividade || []).find(p => p.talhao_codigo === talhaoCodigo && p.cultura_nome === t.cultura_nome);
+    const area = prod ? Number(prod.area_planejada_ha || 0) : 0;
+    const custoHa = area ? Number(t.custo_total) / area : null;
+    const st = Number(t.resultado_estimado) >= 0 ? statusFromMargin(10) : statusFromMargin(-5);
+    const insight = buildTalhaoInsight(t)[0];
+
+    openDrilldown({
+        title: `Talhão ${t.talhao_codigo}`,
+        subtitle: `${t.cultura_nome} · ${t.talhao_nome || ''}`.trim(),
+        status: st.status,
+        statusLabel: st.label,
+        metrics: [
+            { label: 'Cultura', value: t.cultura_nome },
+            { label: 'Produção', value: formatNumber(t.producao_sc, 0) + ' sc' },
+            { label: 'Custo total', value: formatCurrency(t.custo_total) },
+            { label: 'Resultado estimado', value: formatCurrency(t.resultado_estimado), highlight: true },
+            { label: 'Custo / hectare', value: custoHa != null ? formatCurrency(custoHa) + '/ha' : '—' },
+            { label: 'Produtividade', value: prod ? formatNumber(prod.produtividade_sc_ha, 1) + ' sc/ha' : '—' },
+            { label: 'Preço médio (sc)', value: formatCurrency(t.preco_medio_sc) }
+        ],
+        insight
+    });
+}
+
+function openStockDrilldown(insumoNome) {
+    const item = (store.insumos || []).find(i => i.insumo_nome === insumoNome);
+    if (!item) return;
+    const total = sumField(store.insumos || [], 'valor_estoque');
+    const insight = buildStockInsights(store, item)[0];
+
+    openDrilldown({
+        title: item.insumo_nome,
+        subtitle: item.categoria || 'Insumo',
+        metrics: [
+            { label: 'Categoria', value: item.categoria || '—' },
+            { label: 'Quantidade', value: formatNumber(item.quantidade_atual, 1) + ' ' + (item.unidade || '') },
+            { label: 'Valor estimado', value: formatCurrency(item.valor_estoque), highlight: true },
+            { label: 'Participação', value: formatPct(pctShare(item.valor_estoque, total)) },
+            { label: 'Armazém', value: item.armazem_nome || item.armazem_codigo || '—' },
+            { label: 'Custo unitário', value: formatCurrency(item.custo_unitario) }
+        ],
+        insight
+    });
+}
+
+function openFinancialDrilldown(culturaNome) {
+    const byCulture = aggregateDreByCulture(store.dre || []);
+    const row = byCulture.find(c => c.cultura_nome === culturaNome);
+    if (!row) return;
+    const margemPct = row.receita_bruta ? (Number(row.resultado) / Number(row.receita_bruta)) * 100 : 0;
+    const st = statusFromMargin(margemPct);
+    const insight = buildFinancialInsight(row)[0];
+
+    openDrilldown({
+        title: `DRE — ${culturaNome}`,
+        subtitle: 'Composição gerencial da cultura',
+        status: st.status,
+        statusLabel: st.label,
+        metrics: [
+            { label: 'Receita bruta', value: formatCurrency(row.receita_bruta) },
+            { label: 'Custos variáveis', value: formatCurrency(row.custos_variaveis) },
+            { label: 'Custos fixos / despesas', value: formatCurrency(row.custos_fixos) },
+            { label: 'Resultado', value: formatCurrency(row.resultado), highlight: true },
+            { label: 'Margem líquida', value: formatPct(margemPct) }
+        ],
+        insight
+    });
+}
+
+function openMachineDrilldown(equipamentoNome) {
+    const m = (store.maquinas || []).find(x => x.equipamento_nome === equipamentoNome);
+    if (!m) return;
+
+    openDrilldown({
+        title: m.equipamento_nome,
+        subtitle: m.categoria || 'Equipamento',
+        metrics: [
+            { label: 'Horas trabalhadas', value: formatNumber(m.horas_totais, 1) + ' h' },
+            { label: 'Custo estimado', value: formatCurrency(m.custo_total), highlight: true },
+            { label: 'Apontamentos', value: formatNumber(m.apontamentos, 0) },
+            { label: 'Custo / hora', value: m.horas_totais ? formatCurrency(Number(m.custo_total) / Number(m.horas_totais)) : '—' }
+        ],
+        insight: {
+            title: 'Uso operacional',
+            text: `${m.equipamento_nome} registrou ${formatNumber(m.horas_totais, 1)} horas na safra demonstrativa.`,
+            tone: 'info'
+        }
+    });
+}
+
+function bindDrilldownClicks() {
+    document.getElementById('culture-cards')?.addEventListener('click', e => {
+        const card = e.target.closest('[data-culture]');
+        const btn = e.target.closest('[data-analyze]');
+        const nome = card?.dataset.culture || btn?.dataset.analyze;
+        if (nome) openCultureDrilldown(nome);
+    });
+
+    document.getElementById('cards-talhao')?.addEventListener('click', e => {
+        const card = e.target.closest('[data-talhao]');
+        if (card) openTalhaoDrilldown(card.dataset.talhao);
+    });
+
+    document.getElementById('ranking-insumos')?.addEventListener('click', e => {
+        const row = e.target.closest('[data-insumo]');
+        if (row) openStockDrilldown(row.dataset.insumo);
+    });
+
+    document.getElementById('cards-dre')?.addEventListener('click', e => {
+        const card = e.target.closest('[data-dre-culture]');
+        if (card) openFinancialDrilldown(card.dataset.dreCulture);
+    });
+}
+
+/* ─── Visão Geral ─── */
+
+function renderOverview(dre, margem, custoHa, comercial, producao, insumos, drawChart = false) {
+    const byCulture = aggregateDreByCulture(dre);
+    const receitaTotal = sumField(byCulture, 'receita_bruta');
+    const custoVar = sumField(byCulture, 'custos_variaveis');
+    const custoFix = sumField(byCulture, 'custos_fixos');
+    const custoTotal = custoVar + custoFix;
+    const resultado = sumField(byCulture, 'resultado');
+    const margemPct = receitaTotal ? (resultado / receitaTotal) * 100 : 0;
     const areaTotal = custoHa.reduce((s, r) => s + Number(r.area_total_ha || 0), 0);
+    const estoqueSc = sumField(producao, 'quantidade_atual_sc');
+    const estoqueValor = sumField(insumos, 'valor_estoque');
+    const resultadoSt = statusFromMargin(margemPct);
 
     renderKpis('kpi-overview', [
-        moneyKpi('Receita total', receitaTotal),
-        moneyKpi('Custo total', custoTotal),
-        moneyKpi('Margem bruta', margemBrutaTotal, 'kpi-value--gold'),
-        { label: 'Área total', value: formatNumber(areaTotal, 0) + ' ha' },
-        { label: 'Culturas', value: formatNumber(culturas.size || comercial.length) }
+        moneyKpi('Receita total', receitaTotal, 'Faturamento bruto consolidado', 'positive'),
+        moneyKpi('Custo total', custoTotal, 'Variáveis + fixos da safra', 'warn'),
+        moneyKpi('Resultado', resultado, resultado >= 0 ? 'Margem saudável na operação simulada' : 'Resultado negativo — atenção', resultadoSt.tone, resultado >= 0 ? 'kpi-value--positive' : 'kpi-value--negative'),
+        { label: 'Margem líquida', value: formatPct(margemPct), hint: resultadoSt.label, tone: resultadoSt.tone },
+        { label: 'Área total', value: formatNumber(areaTotal, 0) + ' ha', hint: `${formatNumber(comercial.length || byCulture.length)} culturas` },
+        moneyKpi('Estoque insumos', estoqueValor, formatNumber(estoqueSc, 0) + ' sc de produção armazenada')
     ]);
+
+    renderInsightCards(el('insights-overview'), buildExecutiveInsights(store));
 
     if (!drawChart) return;
 
-    const chart = initChart('chart-overview');
-    if (chart && byCulture.length) {
-        const sorted = sortCultures(byCulture.map(r => r.cultura_nome));
-        const data = sorted.map(name => byCulture.find(r => r.cultura_nome === name));
-        chart.setOption({
-            color: ['#40916c', '#b8860b'],
-            tooltip: {
-                trigger: 'axis',
-                formatter: params => params.map(p =>
-                    `${p.marker} ${p.seriesName}: ${formatCurrency(p.value)}`
-                ).join('<br>')
-            },
-            legend: { data: ['Receita', 'Resultado'], bottom: 4, textStyle: { fontSize: 11 } },
-            grid: { left: 52, right: 12, top: 20, bottom: 52, containLabel: false },
-            xAxis: {
-                type: 'category',
-                data: sorted,
-                axisLabel: { fontSize: 11, interval: 0 }
-            },
-            yAxis: {
-                type: 'value',
-                axisLabel: { fontSize: 10, formatter: v => (v / 1e6).toFixed(0) + 'M' }
-            },
-            series: [
-                { name: 'Receita', type: 'bar', data: data.map(r => r.receita_bruta), barMaxWidth: 32 },
-                { name: 'Resultado', type: 'bar', data: data.map(r => r.resultado), barMaxWidth: 32 }
-            ]
-        }, true);
+    setChart('chart-waterfall-exec', waterfallOption([
+        { label: 'Receita bruta', value: receitaTotal, type: 'add' },
+        { label: 'Custos var.', value: -custoVar, type: 'subtract' },
+        { label: 'Custos fixos', value: -custoFix, type: 'subtract' },
+        { label: 'Resultado', value: resultado, type: 'total' }
+    ]));
+
+    const treemapSource = sortCultures(byCulture.map(c => c.cultura_nome)).map(name => {
+        const c = byCulture.find(r => r.cultura_nome === name);
+        const val = Number(c.resultado) > 0 ? Number(c.resultado) : Number(c.receita_bruta);
+        return { name, value: val, pct: pctShare(val, resultado > 0 ? resultado : receitaTotal) };
+    }).filter(i => i.value > 0);
+
+    if (treemapSource.length) {
+        setChart('chart-treemap-cultura', treemapOption(treemapSource));
     }
 }
 
-function renderCulturas(resultado, margem, produtividade) {
+/* ─── Culturas ─── */
+
+function renderCulturas(resultado, margem, produtividade, dre, drawChart = false) {
     const prodMap = avgProdutividadeByCulture(produtividade);
     const margemMap = new Map(margem.map(m => [m.cultura_nome, m]));
+    const byCulture = aggregateDreByCulture(dre);
+    const receitaTotal = sumField(byCulture, 'receita_bruta');
     const culturas = sortCultures([...new Set([
         ...resultado.map(r => r.cultura_nome),
         ...margem.map(m => m.cultura_nome)
     ])].filter(Boolean));
 
     const container = el('culture-cards');
-    if (!container) return;
+    if (container) {
+        container.innerHTML = culturas.map(nome => {
+            const res = resultado.find(r => r.cultura_nome === nome) || {};
+            const dreRow = byCulture.find(c => c.cultura_nome === nome) || {};
+            const mar = margemMap.get(nome) || {};
+            const prod = prodMap.get(nome);
+            const receita = Number(res.receita_bruta ?? mar.receita_bruta ?? dreRow.receita_bruta ?? 0);
+            const custo = Number(res.custos_variaveis || dreRow.custos_variaveis || 0) + Number(res.custos_fixos || dreRow.custos_fixos || 0);
+            const resultadoVal = Number(res.resultado ?? dreRow.resultado ?? mar.margem_bruta ?? 0);
+            const margemPct = receita ? (resultadoVal / receita) * 100 : 0;
+            const st = statusFromMargin(margemPct);
+            const share = formatPct(pctShare(receita, receitaTotal));
 
-    container.innerHTML = culturas.map(nome => {
+            return `
+                <article class="culture-card${st.tone === 'critical' ? ' culture-card--negative' : ''}" data-culture="${nome}">
+                    <div class="culture-card-header">
+                        <h3>${nome}</h3>
+                        <span class="status-pill status-pill--${st.status}">${st.label}</span>
+                    </div>
+                    <dl class="culture-metrics">
+                        <div class="metric"><dt>Receita</dt><dd title="${formatCurrency(receita)}">${formatCurrencyCompact(receita)}</dd></div>
+                        <div class="metric"><dt>Custo</dt><dd title="${formatCurrency(custo)}">${formatCurrencyCompact(custo)}</dd></div>
+                        <div class="metric"><dt>Margem</dt><dd title="${formatCurrency(resultadoVal)}">${formatCurrencyCompact(resultadoVal)}</dd></div>
+                        <div class="metric"><dt>Produtividade</dt><dd>${prod != null ? formatNumber(prod, 1) + ' sc/ha' : '—'}</dd></div>
+                    </dl>
+                    <div class="culture-card-footer">
+                        <span class="culture-share">${share} da receita</span>
+                        <button type="button" class="btn-analyze" data-analyze="${nome}">Analisar</button>
+                    </div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    if (!drawChart) return;
+
+    const points = culturas.map(nome => {
         const res = resultado.find(r => r.cultura_nome === nome) || {};
-        const mar = margemMap.get(nome) || {};
-        const prod = prodMap.get(nome);
-        const custo = Number(res.custos_variaveis || 0) + Number(res.custos_fixos || 0);
-        const resultadoVal = Number(res.resultado ?? mar.margem_bruta ?? 0);
-        const positive = resultadoVal >= 0;
+        const dreRow = byCulture.find(c => c.cultura_nome === nome) || {};
+        const receita = Number(res.receita_bruta ?? dreRow.receita_bruta ?? 0);
+        const resultadoVal = Number(res.resultado ?? dreRow.resultado ?? 0);
+        const margemPct = receita ? (resultadoVal / receita) * 100 : 0;
+        const prod = prodMap.get(nome) || 0;
+        const st = statusFromMargin(margemPct);
+        const color = st.tone === 'positive' ? CHART_COLORS.positive : st.tone === 'warn' ? CHART_COLORS.warn : CHART_COLORS.negative;
+        return { name: nome, x: prod, y: margemPct, size: receita, receita, color };
+    }).filter(p => p.x > 0 || p.receita > 0);
 
-        return `
-            <article class="culture-card ${positive ? '' : 'culture-card--negative'}">
-                <div class="culture-card-header">
-                    <h3>${nome}</h3>
-                    <span class="status-pill ${positive ? 'status-pill--ok' : 'status-pill--warn'}">
-                        ${positive ? 'Positivo' : 'Atenção'}
-                    </span>
-                </div>
-                <dl class="culture-metrics">
-                    <div class="metric">
-                        <dt>Receita</dt>
-                        <dd title="${formatCurrency(res.receita_bruta ?? mar.receita_bruta)}">${formatCurrencyCompact(res.receita_bruta ?? mar.receita_bruta)}</dd>
-                    </div>
-                    <div class="metric">
-                        <dt>Custo</dt>
-                        <dd title="${formatCurrency(custo)}">${formatCurrencyCompact(custo)}</dd>
-                    </div>
-                    <div class="metric">
-                        <dt>Margem</dt>
-                        <dd title="${formatCurrency(mar.margem_bruta)}">${formatCurrencyCompact(mar.margem_bruta)}</dd>
-                    </div>
-                    <div class="metric">
-                        <dt>Produtividade</dt>
-                        <dd>${prod != null ? formatNumber(prod, 1) + ' sc/ha' : '—'}</dd>
-                    </div>
-                </dl>
-            </article>
-        `;
-    }).join('');
+    if (points.length) {
+        setChart('chart-scatter-cultura', scatterBubbleOption(points));
+    }
+
+    const sorted = [...culturas].sort((a, b) => {
+        const ra = byCulture.find(c => c.cultura_nome === a);
+        const rb = byCulture.find(c => c.cultura_nome === b);
+        const ma = ra?.receita_bruta ? (ra.resultado / ra.receita_bruta) * 100 : 0;
+        const mb = rb?.receita_bruta ? (rb.resultado / rb.receita_bruta) * 100 : 0;
+        return ma - mb;
+    });
+
+    setChart('chart-margem-cultura', horizontalBarOption(
+        sorted,
+        sorted.map(n => {
+            const r = byCulture.find(c => c.cultura_nome === n);
+            return r?.receita_bruta ? (r.resultado / r.receita_bruta) * 100 : 0;
+        }),
+        { color: CHART_COLORS.primary, formatter: v => formatPct(v), xFormatter: v => v + '%' }
+    ));
 }
+
+/* ─── Estoques ─── */
 
 function renderEstoques(insumos, producao, drawChart = false) {
     const valorInsumos = sumField(insumos, 'valor_estoque');
     const volumeProd = sumField(producao, 'quantidade_atual_sc');
+    const topInsumo = [...insumos].sort((a, b) => Number(b.valor_estoque) - Number(a.valor_estoque))[0];
 
     renderKpis('kpi-estoques', [
-        { label: 'Produção (sc)', value: formatNumber(volumeProd, 0) },
-        { label: 'Itens insumo', value: formatNumber(insumos.length) },
-        moneyKpi('Valor insumos', valorInsumos)
+        { label: 'Produção armazenada', value: formatNumber(volumeProd, 0) + ' sc', hint: 'Grãos e café em estoque' },
+        moneyKpi('Valor produção est.', volumeProd * 85, 'Estimativa ilustrativa', 'positive'),
+        moneyKpi('Valor insumos', valorInsumos, `${insumos.length} itens monitorados`),
+        { label: 'Item crítico', value: topInsumo?.insumo_nome?.slice(0, 18) || '—', hint: topInsumo ? formatCurrencyCompact(topInsumo.valor_estoque) : '', tone: 'warn' }
     ]);
+
+    renderInsightCards(el('insights-estoques'), buildStockPanelInsights(store));
 
     const byCulture = new Map();
     producao.forEach(p => {
@@ -234,156 +434,179 @@ function renderEstoques(insumos, producao, drawChart = false) {
         byCulture.set(c, (byCulture.get(c) || 0) + Number(p.quantidade_atual_sc || 0));
     });
     const cultNames = sortCultures([...byCulture.keys()]);
-    if (!drawChart) return;
 
-    const chart = initChart('chart-estoque-prod');
-    if (chart && cultNames.length) {
-        chart.setOption({
-            color: ['#40916c'],
-            tooltip: { trigger: 'axis', formatter: p => `${p[0].name}: ${formatNumber(p[0].value, 0)} sc` },
-            grid: { left: 8, right: 24, top: 8, bottom: 8, containLabel: true },
-            xAxis: { type: 'value', axisLabel: { fontSize: 10 } },
-            yAxis: { type: 'category', data: cultNames, axisLabel: { fontSize: 11 } },
-            series: [{
-                type: 'bar',
-                data: cultNames.map(c => byCulture.get(c)),
-                barMaxWidth: 22
-            }]
-        }, true);
+    const rankingEl = el('ranking-insumos');
+    if (rankingEl) {
+        const top5 = [...insumos]
+            .sort((a, b) => Number(b.valor_estoque) - Number(a.valor_estoque))
+            .slice(0, 5);
+        rankingEl.innerHTML = top5.map((item, i) => `
+            <div class="ranking-row" data-insumo="${item.insumo_nome}">
+                <span class="ranking-pos">${i + 1}</span>
+                <div class="ranking-info">
+                    <div class="ranking-name">${item.insumo_nome}</div>
+                    <div class="ranking-meta">${item.categoria} · ${formatNumber(item.quantidade_atual, 1)} ${item.unidade || ''}</div>
+                </div>
+                <span class="ranking-value">${formatCurrencyCompact(item.valor_estoque)}</span>
+            </div>
+        `).join('');
     }
 
-    renderDataCards('cards-estoque-ins', insumos.slice(0, 8).map(i => ({
-        title: i.insumo_nome,
-        rows: [
-            { label: 'Qtd', value: formatNumber(i.quantidade_atual, 1) + ' ' + (i.unidade || '') },
-            { label: 'Valor', value: formatCurrencyCompact(i.valor_estoque), title: formatCurrency(i.valor_estoque) }
-        ]
-    })));
+    if (!drawChart) return;
+
+    if (cultNames.length) {
+        setChart('chart-estoque-prod', horizontalBarOption(
+            cultNames,
+            cultNames.map(c => byCulture.get(c)),
+            { color: CHART_COLORS.light, formatter: v => formatNumber(v, 0) + ' sc' }
+        ));
+    }
+
+    const treemapIns = [...insumos]
+        .sort((a, b) => Number(b.valor_estoque) - Number(a.valor_estoque))
+        .slice(0, 12)
+        .map(i => ({
+            name: i.insumo_nome,
+            value: Number(i.valor_estoque),
+            pct: pctShare(i.valor_estoque, valorInsumos)
+        }));
+
+    if (treemapIns.length) {
+        setChart('chart-treemap-insumos', treemapOption(treemapIns));
+    }
 }
 
+/* ─── Financeiro ─── */
+
 function renderFinanceiro(dre, fluxo, drawChart = false) {
-    const byCulture = aggregateByCulture(dre);
+    const byCulture = aggregateDreByCulture(dre);
     const receita = sumField(byCulture, 'receita_bruta');
-    const custos = byCulture.reduce((s, r) => s + Number(r.custos_variaveis || 0), 0);
-    const despesas = byCulture.reduce((s, r) => s + Number(r.custos_fixos || 0), 0);
+    const custosVar = sumField(byCulture, 'custos_variaveis');
+    const despesas = sumField(byCulture, 'custos_fixos');
     const resultado = sumField(byCulture, 'resultado');
+    const margemPct = receita ? (resultado / receita) * 100 : 0;
     const resultadoClass = resultado >= 0 ? 'kpi-value--positive' : 'kpi-value--negative';
 
     renderKpis('kpi-financeiro', [
-        moneyKpi('Receita', receita),
-        moneyKpi('Custos', custos),
-        moneyKpi('Despesas', despesas),
-        moneyKpi('Resultado', resultado, resultadoClass)
+        moneyKpi('Receita', receita, 'Entradas consolidadas', 'positive'),
+        moneyKpi('Custos variáveis', custosVar),
+        moneyKpi('Despesas / fixos', despesas),
+        moneyKpi('Resultado', resultado, `Margem ${formatPct(margemPct)}`, resultado >= 0 ? 'positive' : 'critical', resultadoClass)
     ]);
 
-    if (!drawChart) return;
-
-    const chart = initChart('chart-fluxo');
-    if (chart && fluxo.length) {
-        chart.setOption({
-            color: ['#2d6a4f'],
-            tooltip: {
-                trigger: 'axis',
-                formatter: p => `${p[0].axisValue}<br>Saldo: ${formatCurrency(p[0].value)}`
-            },
-            grid: { left: 48, right: 12, top: 16, bottom: 40 },
-            xAxis: {
-                type: 'category',
-                data: fluxo.map(r => r.data_movimento),
-                axisLabel: { fontSize: 9, rotate: 35, interval: Math.floor(fluxo.length / 6) }
-            },
-            yAxis: {
-                type: 'value',
-                axisLabel: { fontSize: 10, formatter: v => (v / 1e6).toFixed(0) + 'M' }
-            },
-            series: [{
-                type: 'line',
-                smooth: true,
-                data: fluxo.map(r => r.saldo_acumulado),
-                areaStyle: { opacity: 0.1 }
-            }]
-        }, true);
+    const dreContainer = el('cards-dre');
+    if (dreContainer) {
+        dreContainer.innerHTML = sortCultures(byCulture.map(d => d.cultura_nome)).map(name => {
+            const d = byCulture.find(r => r.cultura_nome === name);
+            const mp = d.receita_bruta ? (d.resultado / d.receita_bruta) * 100 : 0;
+            const st = statusFromMargin(mp);
+            return `
+                <article class="dre-card" data-dre-culture="${name}">
+                    <div class="dre-card-header">
+                        <span class="dre-card-title">${name}</span>
+                        <span class="status-pill status-pill--${st.status}">${formatPct(mp)}</span>
+                    </div>
+                    <div class="data-row"><span>Receita</span><span>${formatCurrencyCompact(d.receita_bruta)}</span></div>
+                    <div class="data-row"><span>Resultado</span><span>${formatCurrencyCompact(d.resultado)}</span></div>
+                </article>
+            `;
+        }).join('');
     }
 
-    renderDataCards('cards-dre', sortCultures(byCulture.map(d => d.cultura_nome)).map(name => {
-        const d = byCulture.find(r => r.cultura_nome === name);
-        return {
-            title: d.cultura_nome,
-            rows: [
-                { label: 'Receita', value: formatCurrencyCompact(d.receita_bruta), title: formatCurrency(d.receita_bruta) },
-                { label: 'Custos var.', value: formatCurrencyCompact(d.custos_variaveis), title: formatCurrency(d.custos_variaveis) },
-                { label: 'Despesas', value: formatCurrencyCompact(d.custos_fixos), title: formatCurrency(d.custos_fixos) },
-                { label: 'Resultado', value: formatCurrencyCompact(d.resultado), title: formatCurrency(d.resultado) }
-            ]
-        };
-    }));
+    if (!drawChart) return;
+
+    setChart('chart-waterfall-dre', waterfallOption([
+        { label: 'Receita', value: receita, type: 'add' },
+        { label: 'Custos var.', value: -custosVar, type: 'subtract' },
+        { label: 'Despesas', value: -despesas, type: 'subtract' },
+        { label: 'Resultado', value: resultado, type: 'total' }
+    ]));
+
+    const cats = sortCultures(byCulture.map(c => c.cultura_nome));
+    setChart('chart-custos-stack', stackedBarOption(cats, [
+        { name: 'Variáveis', data: cats.map(n => byCulture.find(c => c.cultura_nome === n)?.custos_variaveis || 0) },
+        { name: 'Fixos', data: cats.map(n => byCulture.find(c => c.cultura_nome === n)?.custos_fixos || 0) }
+    ]));
+
+    if (fluxo.length) {
+        setChart('chart-fluxo', lineAreaOption(
+            fluxo.map(r => r.data_movimento),
+            fluxo.map(r => r.saldo_acumulado),
+            { rotate: 35, interval: Math.floor(fluxo.length / 6) }
+        ));
+    }
 }
+
+/* ─── Operações ─── */
 
 function renderOperacoes(talhoes, maquinas, maoObra, drawChart = false) {
-    renderDataCards('cards-talhao', talhoes
-        .sort((a, b) => Number(b.custo_total || 0) - Number(a.custo_total || 0))
-        .slice(0, 6)
-        .map(t => ({
-            title: `${t.talhao_codigo} · ${t.cultura_nome}`,
-            rows: [
-                { label: 'Produção', value: formatNumber(t.producao_sc, 0) + ' sc' },
-                { label: 'Custo', value: formatCurrencyCompact(t.custo_total), title: formatCurrency(t.custo_total) },
-                { label: 'Resultado', value: formatCurrencyCompact(t.resultado_estimado), title: formatCurrency(t.resultado_estimado) }
-            ]
-        })));
+    const sortedTalhoes = [...talhoes].sort((a, b) => Number(b.custo_total) - Number(a.custo_total));
+    const topTalhoes = sortedTalhoes.slice(0, 6);
 
-    const maqSorted = maquinas
-        .sort((a, b) => Number(b.horas_totais || 0) - Number(a.horas_totais || 0))
-        .slice(0, 8);
+    const talhaoContainer = el('cards-talhao');
+    if (talhaoContainer) {
+        talhaoContainer.innerHTML = topTalhoes.map(t => `
+            <article class="talhao-card" data-talhao="${t.talhao_codigo}">
+                <div class="talhao-card-title">${t.talhao_codigo} · ${t.cultura_nome}</div>
+                <div class="talhao-card-rows">
+                    <span>Custo: <strong>${formatCurrencyCompact(t.custo_total)}</strong></span>
+                    <span>Resultado: <strong>${formatCurrencyCompact(t.resultado_estimado)}</strong></span>
+                    <span>Produção: <strong>${formatNumber(t.producao_sc, 0)} sc</strong></span>
+                </div>
+            </article>
+        `).join('');
+    }
+
+    renderInsightCards(el('insights-operacoes'), buildOperationsInsights(store));
 
     if (!drawChart) return;
 
-    const chartMaq = initChart('chart-maquinas');
-    if (chartMaq && maqSorted.length) {
-        chartMaq.setOption({
-            color: ['#2d6a4f'],
-            tooltip: {
-                trigger: 'axis',
-                formatter: p => `${p[0].name}<br>${formatNumber(p[0].value, 1)} h · ${formatCurrency(maqSorted[p[0].dataIndex]?.custo_total)}`
-            },
-            grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
-            xAxis: { type: 'value', axisLabel: { fontSize: 10 } },
-            yAxis: {
-                type: 'category',
-                data: maqSorted.map(m => m.equipamento_nome),
-                axisLabel: { fontSize: 10, width: 90, overflow: 'truncate' }
-            },
-            series: [{
-                type: 'bar',
-                data: maqSorted.map(m => m.horas_totais),
-                barMaxWidth: 20
-            }]
-        }, true);
+    const paretoSlice = sortedTalhoes.slice(0, 10);
+    if (paretoSlice.length) {
+        setChart('chart-pareto-talhao', paretoOption(
+            paretoSlice.map(t => t.talhao_codigo),
+            paretoSlice.map(t => Number(t.custo_total))
+        ));
     }
 
-    const equipeMap = new Map();
-    maoObra.forEach(r => {
-        const team = r.equipe || 'Sem equipe';
-        equipeMap.set(team, (equipeMap.get(team) || 0) + Number(r.horas_totais || 0));
+    const culturas = sortCultures([...new Set(talhoes.map(t => t.cultura_nome))]);
+    const talhaoCodes = [...new Set(talhoes.map(t => t.talhao_codigo))].slice(0, 8);
+    const heatMatrix = talhaoCodes.map(tc => {
+        return culturas.map(cult => {
+            const row = talhoes.find(t => t.talhao_codigo === tc && t.cultura_nome === cult);
+            return row ? Number(row.custo_total) : 0;
+        });
     });
-    const teams = [...equipeMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
 
-    const chartMo = initChart('chart-mao-obra');
-    if (chartMo && teams.length) {
-        chartMo.setOption({
-            color: ['#40916c'],
-            tooltip: { trigger: 'axis', formatter: p => `${p[0].name}: ${formatNumber(p[0].value, 1)} h` },
-            grid: { left: 40, right: 12, top: 12, bottom: 48 },
-            xAxis: {
-                type: 'category',
-                data: teams.map(t => t[0]),
-                axisLabel: { fontSize: 9, rotate: 25, interval: 0 }
-            },
-            yAxis: { type: 'value', name: 'h', nameTextStyle: { fontSize: 10 } },
-            series: [{ type: 'bar', data: teams.map(t => t[1]), barMaxWidth: 36 }]
-        }, true);
+    if (talhaoCodes.length && culturas.length) {
+        setChart('chart-heatmap-talhao', heatmapOption(culturas, talhaoCodes, heatMatrix));
+    }
+
+    const byResult = [...talhoes].sort((a, b) => Number(b.resultado_estimado) - Number(a.resultado_estimado)).slice(0, 8);
+    if (byResult.length) {
+        setChart('chart-ranking-talhao', horizontalBarOption(
+            byResult.map(t => t.talhao_codigo),
+            byResult.map(t => Number(t.resultado_estimado)),
+            { color: CHART_COLORS.light, formatter: v => formatCurrency(v) }
+        ));
+    }
+
+    const maqSorted = [...maquinas].sort((a, b) => Number(b.horas_totais) - Number(a.horas_totais)).slice(0, 8);
+    if (maqSorted.length) {
+        setChart('chart-maquinas', comboBarLineOption(
+            maqSorted.map(m => m.equipamento_nome),
+            [{ name: 'Custo (R$)', data: maqSorted.map(m => Number(m.custo_total)) }],
+            [{ name: 'Horas', data: maqSorted.map(m => Number(m.horas_totais)) }]
+        ));
+
+        charts['chart-maquinas']?.off('click');
+        charts['chart-maquinas']?.on('click', params => {
+            if (params.name) openMachineDrilldown(params.name);
+        });
     }
 }
+
+/* ─── Tab / load ─── */
 
 function refreshChartsForTab(tabId) {
     if (chartsReady.has(tabId)) {
@@ -393,7 +616,10 @@ function refreshChartsForTab(tabId) {
     try {
         switch (tabId) {
             case 'visao-geral':
-                renderOverview(store.dre, store.margem, store.custoHa, store.comercial, true);
+                renderOverview(store.dre, store.margem, store.custoHa, store.comercial, store.producao, store.insumos, true);
+                break;
+            case 'culturas':
+                renderCulturas(store.resultado, store.margem, store.produtividade, store.dre, true);
                 break;
             case 'estoques':
                 renderEstoques(store.insumos, store.producao, true);
@@ -486,12 +712,10 @@ async function fetchAllViews(onProgress) {
 }
 
 function showLoadError(msg) {
-    const loading = el('loading-state');
-    const error = el('error-state');
+    el('loading-state')?.classList.add('hidden');
     const errorText = el('error-text');
-    loading?.classList.add('hidden');
     if (errorText) errorText.textContent = msg;
-    error?.classList.remove('hidden');
+    el('error-state')?.classList.remove('hidden');
 }
 
 function showDashboard() {
@@ -514,13 +738,15 @@ async function loadDashboard() {
 
         store = data;
 
-        renderOverview(data.dre, data.margem, data.custoHa, data.comercial, false);
-        renderCulturas(data.resultado, data.margem, data.produtividade);
+        renderOverview(data.dre, data.margem, data.custoHa, data.comercial, data.producao, data.insumos, false);
+        renderCulturas(data.resultado, data.margem, data.produtividade, data.dre, false);
         renderEstoques(data.insumos, data.producao, false);
         renderFinanceiro(data.dre, data.fluxo, false);
         renderOperacoes(data.talhoes, data.maquinas, data.maoObra, false);
 
         showDashboard();
+        initDrilldown();
+        bindDrilldownClicks();
         setupTabs();
         refreshChartsForTab('visao-geral');
     } catch (err) {
