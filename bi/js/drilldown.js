@@ -43,13 +43,23 @@ export function initDrilldown(onClose) {
  * @param {{title:string,text:string,tone?:string}} [opts.insight]
  * @param {string} [opts.nextAction]
  */
-export function openDrilldown({ title, subtitle, status, statusLabel, metrics = [], insight, nextAction }) {
+export function openDrilldown({ title, subtitle, status, statusLabel, metrics = [], insight, nextAction, filterContext }) {
     if (!drawerEl) return;
 
     if (titleEl) titleEl.textContent = title;
     if (subtitleEl) {
         subtitleEl.textContent = subtitle || '';
         subtitleEl.classList.toggle('hidden', !subtitle);
+    }
+    const filterCtxEl = document.getElementById('drilldown-filter-context');
+    if (filterCtxEl) {
+        if (filterContext) {
+            filterCtxEl.textContent = filterContext;
+            filterCtxEl.classList.remove('hidden');
+        } else {
+            filterCtxEl.classList.add('hidden');
+            filterCtxEl.textContent = '';
+        }
     }
     if (statusEl) {
         if (status && statusLabel) {

@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=4.5">
+    <link rel="stylesheet" href="css/styles.css?v=4.6">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=4.5"></script>
+    <script type="module" src="js/app.js?v=4.6"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -19,9 +19,16 @@
                 </div>
                 <span class="badge">Dados fictícios</span>
             </div>
-            <a class="btn-cta-sm" href="https://heliosavio.com/#contato" target="_blank" rel="noopener">
-                Quero uma solução parecida
-            </a>
+            <div class="app-header-actions">
+                <button type="button" class="btn-filters" id="btn-filters" aria-expanded="false" aria-controls="filter-drawer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                    Filtros
+                    <span class="filter-badge hidden" id="filter-badge">0</span>
+                </button>
+                <a class="btn-cta-sm" href="https://heliosavio.com/#contato" target="_blank" rel="noopener">
+                    Quero uma solução parecida
+                </a>
+            </div>
         </header>
 
         <nav class="app-nav" aria-label="Seções do painel">
@@ -65,6 +72,17 @@
         </nav>
 
         <main class="app-main main-content" id="app-main">
+            <div class="filter-chips-bar" id="filter-chips-bar" role="status" aria-live="polite"></div>
+            <div id="filter-empty-state" class="filter-empty-banner hidden" role="status">
+                <div class="filter-empty-inner">
+                    <h3>Nenhum dado encontrado para este recorte</h3>
+                    <p>Altere os filtros ou limpe a seleção para voltar à visão consolidada.</p>
+                    <button type="button" class="btn-filter-clear-inline" id="filter-clear-inline">Limpar filtros</button>
+                </div>
+            </div>
+            <div id="filter-partial-warning" class="filter-partial-banner hidden" role="status">
+                Alguns filtros não se aplicam a esta visualização.
+            </div>
             <div id="loading-state" class="state-overlay" aria-live="polite">
                 <div class="spinner" aria-hidden="true"></div>
                 <p id="loading-text">Carregando indicadores...</p>
@@ -346,6 +364,30 @@
         <div id="drilldown-body" class="drilldown-body"></div>
         <div id="drilldown-insight" class="drilldown-insight hidden"></div>
         <div id="drilldown-action" class="drilldown-action hidden"></div>
+        <p id="drilldown-filter-context" class="drilldown-filter-context hidden"></p>
     </aside>
+
+    <div id="filter-backdrop" class="filter-backdrop" aria-hidden="true"></div>
+    <aside id="filter-drawer" class="filter-drawer" aria-hidden="true" role="dialog" aria-labelledby="filter-drawer-title">
+        <header class="filter-drawer-header">
+            <div>
+                <h2 id="filter-drawer-title">Filtros inteligentes</h2>
+                <p class="filter-drawer-subtitle">Setorize a análise por safra, cultura, talhão e período.</p>
+                <p class="filter-active-count" id="filter-active-count">0 filtros ativos</p>
+            </div>
+            <button type="button" id="filter-close" class="filter-close" aria-label="Fechar filtros">×</button>
+        </header>
+        <div class="filter-impact" id="filter-impact"></div>
+        <div class="filter-presets-wrap">
+            <h3 class="filter-section-title">Recortes rápidos</h3>
+            <div class="filter-presets" id="filter-presets"></div>
+        </div>
+        <div class="filter-panel-body" id="filter-panel-body"></div>
+        <footer class="filter-drawer-footer">
+            <button type="button" class="btn-filter-clear" id="filter-clear">Limpar filtros</button>
+            <button type="button" class="btn-filter-apply" id="filter-apply">Aplicar filtros</button>
+        </footer>
+    </aside>
+    <div id="filter-toast" class="filter-toast hidden" role="status" aria-live="polite"></div>
 </body>
 </html>

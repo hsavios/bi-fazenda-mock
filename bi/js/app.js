@@ -1,11 +1,11 @@
-import {
+﻿import {
     fetchView,
     formatNumber,
     formatCurrency,
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=4.5';
+} from './api.js?v=4.6';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
@@ -13,8 +13,9 @@ import {
     buildStockInsights,
     buildStockPanelInsights,
     buildTalhaoInsight,
+    buildFinancialInsight,
     renderInsightCards
-} from './insights.js?v=4.5';
+} from './insights.js?v=4.6';
 import {
     buildDecisionQuestions,
     buildDecisionDrilldown,
@@ -27,8 +28,8 @@ import {
     renderCommercialTable,
     renderCashMatrix,
     renderCashMobilePanel
-} from './decisionQuestions.js?v=4.5';
-import { initDrilldown, openDrilldown } from './drilldown.js?v=4.5';
+} from './decisionQuestions.js?v=4.6';
+import { initDrilldown, openDrilldown, closeDrilldown } from './drilldown.js?v=4.6';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -40,7 +41,19 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=4.5';
+} from './charts.js?v=4.6';
+import {
+    initFilters,
+    loadFilterState,
+    createEmptyFilterState,
+    clearFilterStorage,
+    saveFilterState,
+    getFilteredStore,
+    getFilterContextLabel,
+    tabHasPartialFilters,
+    isStoreEmptyForTab,
+    countActiveFilters
+} from './filters.js?v=4.6';
 
 const charts = {};
 const chartsReady = new Set();
@@ -53,6 +66,44 @@ const TABS = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'comercializa
 const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
 
 let store = {};
+let filterState = loadFilterState();
+let filterUI = null;
+
+function getData() {
+    return getFilteredStore(store, filterState);
+}
+
+function getCurrentTabId() {
+    const hash = location.hash.replace('#', '');
+    return TABS.includes(hash) ? hash : 'visao-geral';
+}
+
+function updateFilterBanners() {
+    const tabId = getCurrentTabId();
+    const data = getData();
+    const emptyEl = el('filter-empty-state');
+    const partialEl = el('filter-partial-warning');
+    const isEmpty = tabId !== 'sobre' && countActiveFilters(filterState) > 0 && isStoreEmptyForTab(tabId, data);
+    emptyEl?.classList.toggle('hidden', !isEmpty);
+    partialEl?.classList.toggle('hidden', !tabHasPartialFilters(tabId, filterState));
+}
+
+function rerenderDashboard() {
+    const data = getData();
+    chartsReady.clear();
+    renderOverview(data.dre, data.margem, data.custoHa, data.comercial, data.producao, data.insumos, false);
+    renderCulturas(data.resultado, data.margem, data.produtividade, data.dre, false);
+    renderEstoques(data.insumos, data.producao, false);
+    renderFinanceiro(data.dre, data.fluxo, false);
+    renderComercializacao(false);
+    renderCaixa(false);
+    renderOperacoes(data.talhoes, data.maquinas, data.maoObra, false);
+    renderPerguntas();
+    updateFilterBanners();
+    filterUI?.updateChrome(filterState);
+    const tabId = getCurrentTabId();
+    refreshChartsForTab(tabId);
+}
 
 function el(id) {
     return document.getElementById(id);
@@ -166,25 +217,31 @@ function moneyKpi(label, n, hint = '', tone = '', className = '') {
 
 /* ─── Drill-down builders ─── */
 
+function openDrilldownWithContext(opts) {
+    const ctx = getFilterContextLabel(filterState);
+    openDrilldown({ ...opts, filterContext: ctx });
+}
+
 function openCultureDrilldown(nome) {
-    const byCulture = aggregateDreByCulture(store.dre || []);
+    const data = getData();
+    const byCulture = aggregateDreByCulture(data.dre || []);
     const row = byCulture.find(c => c.cultura_nome === nome) || {};
-    const margem = (store.margem || []).find(m => m.cultura_nome === nome) || {};
-    const resultado = (store.resultado || []).find(r => r.cultura_nome === nome) || {};
-    const prodMap = avgProdutividadeByCulture(store.produtividade || []);
+    const margem = (data.margem || []).find(m => m.cultura_nome === nome) || {};
+    const resultado = (data.resultado || []).find(r => r.cultura_nome === nome) || {};
+    const prodMap = avgProdutividadeByCulture(data.produtividade || []);
     const receitaTotal = sumField(byCulture, 'receita_bruta');
-    const estoque = (store.producao || [])
+    const estoque = (data.producao || [])
         .filter(p => p.cultura_nome === nome)
         .reduce((s, p) => s + Number(p.quantidade_atual_sc || 0), 0);
-    const talhoes = (store.talhoes || [])
+    const talhoes = (data.talhoes || [])
         .filter(t => t.cultura_nome === nome)
         .sort((a, b) => Number(b.custo_total) - Number(a.custo_total))
         .slice(0, 3);
     const margemPct = row.receita_bruta ? (Number(row.resultado) / Number(row.receita_bruta)) * 100 : 0;
     const st = statusFromMargin(margemPct);
-    const insight = buildCultureInsights(store, nome)[0];
+    const insight = buildCultureInsights(data, nome)[0];
 
-    openDrilldown({
+    openDrilldownWithContext({
         title: `Análise da cultura — ${nome}`,
         subtitle: `${formatPct(pctShare(row.receita_bruta, receitaTotal))} da receita total`,
         status: st.status,
@@ -205,15 +262,16 @@ function openCultureDrilldown(nome) {
 }
 
 function openTalhaoDrilldown(talhaoCodigo) {
-    const t = (store.talhoes || []).find(x => x.talhao_codigo === talhaoCodigo);
+    const data = getData();
+    const t = (data.talhoes || []).find(x => x.talhao_codigo === talhaoCodigo);
     if (!t) return;
-    const prod = (store.produtividade || []).find(p => p.talhao_codigo === talhaoCodigo && p.cultura_nome === t.cultura_nome);
+    const prod = (data.produtividade || []).find(p => p.talhao_codigo === talhaoCodigo && p.cultura_nome === t.cultura_nome);
     const area = prod ? Number(prod.area_planejada_ha || 0) : 0;
     const custoHa = area ? Number(t.custo_total) / area : null;
     const st = Number(t.resultado_estimado) >= 0 ? statusFromMargin(10) : statusFromMargin(-5);
     const insight = buildTalhaoInsight(t)[0];
 
-    openDrilldown({
+    openDrilldownWithContext({
         title: `Talhão ${t.talhao_codigo}`,
         subtitle: `${t.cultura_nome} · ${t.talhao_nome || ''}`.trim(),
         status: st.status,
@@ -232,12 +290,13 @@ function openTalhaoDrilldown(talhaoCodigo) {
 }
 
 function openStockDrilldown(insumoNome) {
-    const item = (store.insumos || []).find(i => i.insumo_nome === insumoNome);
+    const data = getData();
+    const item = (data.insumos || []).find(i => i.insumo_nome === insumoNome);
     if (!item) return;
-    const total = sumField(store.insumos || [], 'valor_estoque');
-    const insight = buildStockInsights(store, item)[0];
+    const total = sumField(data.insumos || [], 'valor_estoque');
+    const insight = buildStockInsights(data, item)[0];
 
-    openDrilldown({
+    openDrilldownWithContext({
         title: item.insumo_nome,
         subtitle: item.categoria || 'Insumo',
         metrics: [
@@ -253,14 +312,15 @@ function openStockDrilldown(insumoNome) {
 }
 
 function openFinancialDrilldown(culturaNome) {
-    const byCulture = aggregateDreByCulture(store.dre || []);
+    const data = getData();
+    const byCulture = aggregateDreByCulture(data.dre || []);
     const row = byCulture.find(c => c.cultura_nome === culturaNome);
     if (!row) return;
     const margemPct = row.receita_bruta ? (Number(row.resultado) / Number(row.receita_bruta)) * 100 : 0;
     const st = statusFromMargin(margemPct);
     const insight = buildFinancialInsight(row)[0];
 
-    openDrilldown({
+    openDrilldownWithContext({
         title: `DRE — ${culturaNome}`,
         subtitle: 'Composição gerencial da cultura',
         status: st.status,
@@ -277,10 +337,11 @@ function openFinancialDrilldown(culturaNome) {
 }
 
 function openMachineDrilldown(equipamentoNome) {
-    const m = (store.maquinas || []).find(x => x.equipamento_nome === equipamentoNome);
+    const data = getData();
+    const m = (data.maquinas || []).find(x => x.equipamento_nome === equipamentoNome);
     if (!m) return;
 
-    openDrilldown({
+    openDrilldownWithContext({
         title: m.equipamento_nome,
         subtitle: m.categoria || 'Equipamento',
         metrics: [
@@ -329,8 +390,9 @@ function bindTalhaoChartClick(chartId, talhaoCodes) {
 function openDecisionById(id) {
     const card = decisionCards.find(c => c.id === id);
     if (!card) return;
-    const drill = buildDecisionDrilldown(card, store);
-    if (drill) openDrilldown(drill);
+    const data = getData();
+    const drill = buildDecisionDrilldown(card, data);
+    if (drill) openDrilldownWithContext(drill);
 }
 
 function openCommercialCultureDrilldown(cultura) {
@@ -342,8 +404,9 @@ function openCommercialCultureDrilldown(cultura) {
         drillType: 'commercialCulture',
         payload: { cultura }
     };
-    const drill = buildDecisionDrilldown(card, store);
-    if (drill) openDrilldown(drill);
+    const data = getData();
+    const drill = buildDecisionDrilldown(card, data);
+    if (drill) openDrilldownWithContext(drill);
 }
 
 function openCashMonthDrilldown(month) {
@@ -355,8 +418,9 @@ function openCashMonthDrilldown(month) {
         drillType: 'cashMonth',
         payload: { monthKey: month.monthKey, monthLabel: month.monthLabel }
     };
-    const drill = buildDecisionDrilldown(card, store);
-    if (drill) openDrilldown(drill);
+    const data = getData();
+    const drill = buildDecisionDrilldown(card, data);
+    if (drill) openDrilldownWithContext(drill);
 }
 
 function selectDecision(id) {
@@ -366,7 +430,7 @@ function selectDecision(id) {
     renderSelectedQuestionPanel(
         el('selected-question-panel'),
         decisionCards.find(c => c.id === id),
-        store
+        getData()
     );
 }
 
@@ -394,7 +458,8 @@ function bindDecisionClicks() {
 }
 
 function renderPerguntas() {
-    decisionCards = buildDecisionQuestions(store);
+    const data = getData();
+    decisionCards = buildDecisionQuestions(data);
     if (!selectedDecisionId || !decisionCards.find(c => c.id === selectedDecisionId)) {
         selectedDecisionId = decisionCards[0]?.id || null;
     }
@@ -403,12 +468,13 @@ function renderPerguntas() {
     renderSelectedQuestionPanel(
         el('selected-question-panel'),
         decisionCards.find(c => c.id === selectedDecisionId),
-        store
+        data
     );
 }
 
 function renderComercializacao(drawChart = false) {
-    const com = buildCommercialSummary(store.comercial || []);
+    const data = getData();
+    const com = buildCommercialSummary(data.comercial || []);
     const pctEntregue = com.totalContratado
         ? (com.totalEntregue / com.totalContratado) * 100
         : 0;
@@ -422,7 +488,7 @@ function renderComercializacao(drawChart = false) {
     ]);
 
     renderInsightCards(el('insights-comercial'), buildCommercialInsights(com));
-    renderCommercialTable(el('comercial-table'), store.comercial, openCommercialCultureDrilldown);
+    renderCommercialTable(el('comercial-table'), data.comercial, openCommercialCultureDrilldown);
 
     if (!drawChart) return;
 
@@ -478,7 +544,8 @@ function setupCashMobile(months) {
 }
 
 function renderCaixa(drawChart = false) {
-    const months = aggregateCashByMonth(store.fluxo);
+    const data = getData();
+    const months = aggregateCashByMonth(data.fluxo);
     const totalEntradas = months.reduce((s, m) => s + m.entradas, 0);
     const totalSaidas = months.reduce((s, m) => s + m.saidas, 0);
     const saldoFinal = months.length ? months[months.length - 1].saldoAcumulado : 0;
@@ -498,7 +565,7 @@ function renderCaixa(drawChart = false) {
     ]);
 
     renderInsightCards(el('insights-caixa'), buildCashInsights(months));
-    renderCashMatrix(el('cash-matrix'), store.fluxo, openCashMonthDrilldown);
+    renderCashMatrix(el('cash-matrix'), data.fluxo, openCashMonthDrilldown);
     setupCashMobile(months);
 
     if (!drawChart || !months.length) return;
@@ -534,7 +601,7 @@ function renderOverview(dre, margem, custoHa, comercial, producao, insumos, draw
         moneyKpi('Estoque insumos', estoqueValor, formatNumber(estoqueSc, 0) + ' sc de produção armazenada')
     ]);
 
-    renderInsightCards(el('insights-overview'), buildExecutiveInsights(store));
+    renderInsightCards(el('insights-overview'), buildExecutiveInsights(getData()));
 
     if (!drawChart) return;
 
@@ -664,7 +731,7 @@ function renderEstoques(insumos, producao, drawChart = false) {
         { label: 'Item crítico', value: topInsumo?.insumo_nome?.slice(0, 18) || '—', hint: topInsumo ? formatCurrencyCompact(topInsumo.valor_estoque) : '', tone: 'warn' }
     ]);
 
-    renderInsightCards(el('insights-estoques'), buildStockPanelInsights(store));
+    renderInsightCards(el('insights-estoques'), buildStockPanelInsights(getData()));
 
     const byCulture = new Map();
     producao.forEach(p => {
@@ -879,27 +946,37 @@ function refreshChartsForTab(tabId) {
     }
     try {
         switch (tabId) {
-            case 'visao-geral':
-                renderOverview(store.dre, store.margem, store.custoHa, store.comercial, store.producao, store.insumos, true);
+            case 'visao-geral': {
+                const data = getData();
+                renderOverview(data.dre, data.margem, data.custoHa, data.comercial, data.producao, data.insumos, true);
                 break;
-            case 'culturas':
-                renderCulturas(store.resultado, store.margem, store.produtividade, store.dre, true);
+            }
+            case 'culturas': {
+                const data = getData();
+                renderCulturas(data.resultado, data.margem, data.produtividade, data.dre, true);
                 break;
-            case 'estoques':
-                renderEstoques(store.insumos, store.producao, true);
+            }
+            case 'estoques': {
+                const data = getData();
+                renderEstoques(data.insumos, data.producao, true);
                 break;
-            case 'financeiro':
-                renderFinanceiro(store.dre, store.fluxo, true);
+            }
+            case 'financeiro': {
+                const data = getData();
+                renderFinanceiro(data.dre, data.fluxo, true);
                 break;
+            }
             case 'comercializacao':
                 renderComercializacao(true);
                 break;
             case 'caixa':
                 renderCaixa(true);
                 break;
-            case 'operacoes':
-                renderOperacoes(store.talhoes, store.maquinas, store.maoObra, true);
+            case 'operacoes': {
+                const data = getData();
+                renderOperacoes(data.talhoes, data.maquinas, data.maoObra, true);
                 break;
+            }
             case 'perguntas':
                 renderPerguntas();
                 break;
@@ -935,6 +1012,7 @@ function switchTab(tabId, pushHash = true) {
     }
 
     requestAnimationFrame(() => refreshChartsForTab(tabId));
+    updateFilterBanners();
 }
 
 function setupTabs() {
@@ -1014,14 +1092,34 @@ async function loadDashboard() {
 
         store = data;
 
-        renderOverview(data.dre, data.margem, data.custoHa, data.comercial, data.producao, data.insumos, false);
-        renderCulturas(data.resultado, data.margem, data.produtividade, data.dre, false);
-        renderEstoques(data.insumos, data.producao, false);
-        renderFinanceiro(data.dre, data.fluxo, false);
-        renderComercializacao(false);
-        renderCaixa(false);
-        renderOperacoes(data.talhoes, data.maquinas, data.maoObra, false);
-        renderPerguntas();
+        filterUI = initFilters({
+            getStore: () => store,
+            getFilterState: () => filterState,
+            setFilterState: state => { filterState = state; },
+            onApply: () => {
+                closeDrilldown();
+                rerenderDashboard();
+            },
+            onClear: () => {
+                closeDrilldown();
+                filterState = createEmptyFilterState();
+                clearFilterStorage();
+                rerenderDashboard();
+            },
+            getActiveTab: getCurrentTabId,
+            switchTab
+        });
+
+        document.getElementById('filter-clear-inline')?.addEventListener('click', () => {
+            filterState = createEmptyFilterState();
+            clearFilterStorage();
+            filterUI?.updateChrome(filterState);
+            closeDrilldown();
+            rerenderDashboard();
+            filterUI?.showToast('Filtros limpos');
+        });
+
+        rerenderDashboard();
 
         showDashboard();
         initDrilldown(() => {
