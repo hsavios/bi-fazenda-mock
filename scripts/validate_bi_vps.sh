@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # Valida endpoints do stack BI (PostgREST + nginx) e permissões readonly
 set -Eeuo pipefail
 
@@ -30,6 +30,12 @@ KPI_VIEWS=(
     vw_margem_bruta_cultura
     vw_produtividade_talhao
     vw_comercializacao_cultura
+    vw_dre_gerencial_contabil
+    vw_dre_gerencial_resumo
+    vw_dre_cultura_comparativo
+    vw_dre_conta_drilldown
+    vw_balancete_gerencial
+    vw_kpis_contabeis
 )
 
 usage() {

@@ -1,17 +1,17 @@
-import {
+﻿import {
     fetchView,
     formatNumber,
     formatCurrency,
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=4.9';
+} from './api.js?v=5.0';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
     buildStockPanelInsights,
     renderInsightCards
-} from './insights.js?v=4.9';
+} from './insights.js?v=5.0';
 import {
     buildDecisionQuestions,
     buildCommercialSummary,
@@ -23,9 +23,10 @@ import {
     renderCommercialTable,
     renderCashMatrix,
     renderCashMobilePanel
-} from './decisionQuestions.js?v=4.9';
-import { initDrilldown, closeDrilldown } from './drilldown.js?v=4.9';
-import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=4.9';
+} from './decisionQuestions.js?v=5.0';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.0';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.0';
+import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.0';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -37,7 +38,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=4.9';
+} from './charts.js?v=5.0';
 import {
     initFilters,
     loadFilterState,
@@ -49,16 +50,16 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=4.9';
+} from './filters.js?v=5.0';
 
 const charts = {};
 const chartsReady = new Set();
 let chartResizeObserver = null;
 let decisionCards = [];
 let selectedDecisionId = null;
-let selectedCashMonthKey = null;
+let selectedDreSubTab = 'dre';
 const DEBUG_BI = location.hostname === 'localhost' || location.search.includes('debug=1');
-const TABS = ['visao-geral', 'culturas', 'estoques', 'financeiro', 'comercializacao', 'caixa', 'operacoes', 'perguntas', 'sobre'];
+const TABS = ['visao-geral', 'culturas', 'estoques', 'dre-gerencial', 'comercializacao', 'caixa', 'operacoes', 'perguntas', 'sobre'];
 const CULTURE_ORDER = ['Café', 'Feijão', 'Milho', 'Soja', 'Sorgo'];
 
 let store = {};
@@ -90,7 +91,7 @@ function rerenderDashboard() {
     renderOverview(data.dre, data.margem, data.custoHa, data.comercial, data.producao, data.insumos, false);
     renderCulturas(data.resultado, data.margem, data.produtividade, data.dre, false);
     renderEstoques(data.insumos, data.producao, false);
-    renderFinanceiro(data.dre, data.fluxo, false);
+    renderDreGerencialTab(false);
     renderComercializacao(false);
     renderCaixa(false);
     renderOperacoes(data.talhoes, data.maquinas, data.maoObra, false);
@@ -283,7 +284,9 @@ function openMachineDrilldown(equipamentoNome) {
 function registerStaticDrillCoverage() {
     registerDrillCoverage('culturas', 'culture-cards', 'culture', 'ok');
     registerDrillCoverage('estoques', 'ranking-insumos', 'stockItem', 'ok');
-    registerDrillCoverage('financeiro', 'cards-dre', 'financial', 'ok');
+    registerDrillCoverage('dre-gerencial', 'dre-hierarchy', 'dreGroup', 'ok');
+    registerDrillCoverage('dre-gerencial', 'dre-balancete', 'accountingAccount', 'ok');
+    registerDrillCoverage('dre-gerencial', 'dre-cultura-comp', 'cultureDre', 'ok');
     registerDrillCoverage('comercializacao', 'comercial-table', 'commercialCulture', 'ok');
     registerDrillCoverage('caixa', 'cash-matrix', 'cashMonth', 'ok');
     registerDrillCoverage('perguntas', 'decision-cards', 'question', 'ok');
@@ -315,18 +318,6 @@ function bindDrilldownClicks() {
         if (!row) return;
         e.preventDefault();
         openStockDrilldown(row.dataset.insumo);
-    });
-
-    document.getElementById('cards-dre')?.addEventListener('click', e => {
-        const row = e.target.closest('[data-dre-culture]');
-        if (row) openFinancialDrilldown(row.dataset.dreCulture);
-    });
-    document.getElementById('cards-dre')?.addEventListener('keydown', e => {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        const row = e.target.closest('[data-dre-culture]');
-        if (!row) return;
-        e.preventDefault();
-        openFinancialDrilldown(row.dataset.dreCulture);
     });
 }
 
@@ -746,111 +737,18 @@ function renderEstoques(insumos, producao, drawChart = false) {
     }
 }
 
-/* ─── Financeiro ─── */
+/* ─── DRE Gerencial ─── */
 
-function buildFinanceiroPanelInsights(dre) {
-    const byCulture = aggregateDreByCulture(dre);
-    const receita = sumField(byCulture, 'receita_bruta');
-    const resultado = sumField(byCulture, 'resultado');
-    const margemPct = receita ? (resultado / receita) * 100 : 0;
-    const top = [...byCulture].sort((a, b) => b.resultado - a.resultado)[0];
-    const low = [...byCulture].sort((a, b) => a.resultado - b.resultado)[0];
-    const insights = [{
-        title: 'Resultado consolidado',
-        text: `A safra demonstrativa encerra com resultado de ${formatCurrencyCompact(resultado)} e margem de ${formatPct(margemPct)}.`,
-        tone: resultado >= 0 ? 'positive' : 'critical'
-    }];
-    if (top) {
-        insights.push({
-            title: 'Maior contribuidor',
-            text: `${top.cultura_nome} lidera o resultado com ${formatCurrencyCompact(top.resultado)}.`,
-            tone: 'positive'
-        });
-    }
-    if (low && low.cultura_nome !== top?.cultura_nome) {
-        insights.push({
-            title: 'Cultura a monitorar',
-            text: `${low.cultura_nome} apresenta menor resultado relativo (${formatCurrencyCompact(low.resultado)}).`,
-            tone: 'warn'
-        });
-    }
-    return insights;
-}
-
-function renderFinanceiro(dre, _fluxo, drawChart = false) {
-    const byCulture = aggregateDreByCulture(dre);
-    const receita = sumField(byCulture, 'receita_bruta');
-    const custosVar = sumField(byCulture, 'custos_variaveis');
-    const despesas = sumField(byCulture, 'custos_fixos');
-    const resultado = sumField(byCulture, 'resultado');
-    const margemPct = receita ? (resultado / receita) * 100 : 0;
-    const resultadoClass = resultado >= 0 ? 'kpi-value--positive' : 'kpi-value--negative';
-
-    renderKpis('kpi-financeiro', [
-        moneyKpi('Receita', receita, 'Entradas consolidadas', 'positive', '', 'receita-total'),
-        moneyKpi('Custos variáveis', custosVar, '', '', '', 'custo-variaveis'),
-        moneyKpi('Despesas / fixos', despesas, '', '', '', 'despesas'),
-        moneyKpi('Resultado', resultado, `Margem ${formatPct(margemPct)}`, resultado >= 0 ? 'positive' : 'critical', resultadoClass, 'resultado')
-    ], 'financeiro');
-
-    renderInsightCards(el('insights-financeiro'), buildFinanceiroPanelInsights(dre));
-
-    const dreContainer = el('cards-dre');
-    if (dreContainer) {
-        const rows = sortCultures(byCulture.map(d => d.cultura_nome)).map(name => {
-            const d = byCulture.find(r => r.cultura_nome === name);
-            const mp = d.receita_bruta ? (d.resultado / d.receita_bruta) * 100 : 0;
-            const st = statusFromMargin(mp);
-            return `
-                <tr data-dre-culture="${name}" class="drill-row-clickable" role="button" tabindex="0" aria-label="Detalhar DRE ${name}">
-                    <td class="cell-name">${name}</td>
-                    <td>${formatCurrencyCompact(d.receita_bruta)}</td>
-                    <td>${formatCurrencyCompact(d.custos_variaveis)}</td>
-                    <td>${formatCurrencyCompact(d.custos_fixos)}</td>
-                    <td>${formatCurrencyCompact(d.resultado)}</td>
-                    <td><span class="status-pill status-pill--${st.status}">${formatPct(mp)}</span></td>
-                </tr>
-            `;
-        }).join('');
-
-        dreContainer.innerHTML = `
-            <table class="compact-table">
-                <thead>
-                    <tr>
-                        <th>Cultura</th>
-                        <th>Receita</th>
-                        <th>Custos var.</th>
-                        <th>Despesas</th>
-                        <th>Resultado</th>
-                        <th>Margem</th>
-                    </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>
-        `;
-    }
-
-    if (!drawChart) return;
-
-    setChart('chart-waterfall-dre', waterfallOption([
-        { label: 'Receita', value: receita, type: 'add' },
-        { label: 'Custos var.', value: -custosVar, type: 'subtract' },
-        { label: 'Despesas', value: -despesas, type: 'subtract' },
-        { label: 'Resultado', value: resultado, type: 'total' }
-    ]));
-    bindChartDrill('chart-waterfall-dre', params => {
-        const label = params.name || params.seriesName;
-        if (label) openDrill('waterfallStep', { label });
-    }, { section: 'financeiro', element: 'waterfall-dre', type: 'waterfallStep' });
-
-    const cats = sortCultures(byCulture.map(c => c.cultura_nome));
-    setChart('chart-custos-stack', stackedBarOption(cats, [
-        { name: 'Variáveis', data: cats.map(n => byCulture.find(c => c.cultura_nome === n)?.custos_variaveis || 0) },
-        { name: 'Fixos', data: cats.map(n => byCulture.find(c => c.cultura_nome === n)?.custos_fixos || 0) }
-    ]));
-    bindChartDrill('chart-custos-stack', params => {
-        if (params.name) openFinancialDrilldown(params.name);
-    }, { section: 'financeiro', element: 'custos-stack', type: 'culture' });
+function renderDreGerencialTab(drawChart = false) {
+    renderDreGerencial({
+        store: getData(),
+        filterState,
+        charts,
+        setChart,
+        onDrill: (type, context) => openDrill(type, context),
+        subTab: selectedDreSubTab,
+        drawChart
+    });
 }
 
 /* ─── Operações ─── */
@@ -938,11 +836,9 @@ function refreshChartsForTab(tabId) {
                 renderEstoques(data.insumos, data.producao, true);
                 break;
             }
-            case 'financeiro': {
-                const data = getData();
-                renderFinanceiro(data.dre, data.fluxo, true);
+            case 'dre-gerencial':
+                renderDreGerencialTab(true);
                 break;
-            }
             case 'comercializacao':
                 renderComercializacao(true);
                 break;
@@ -1008,6 +904,12 @@ function setupTabs() {
 
 async function fetchAllViews(onProgress) {
     const tasks = [
+        ['dreDrilldown', () => fetchView('vw_dre_conta_drilldown', { limit: '300' })],
+        ['dreResumo', () => fetchView('vw_dre_gerencial_resumo', { limit: '500' })],
+        ['dreContabil', () => fetchView('vw_dre_gerencial_contabil', { limit: '500' })],
+        ['dreCulturaComp', () => fetchView('vw_dre_cultura_comparativo', { limit: '50' })],
+        ['balanceteGerencial', () => fetchView('vw_balancete_gerencial', { limit: '500' })],
+        ['kpisContabeis', () => fetchView('vw_kpis_contabeis', { limit: '100' })],
         ['dre', () => fetchView('vw_dre_gerencial')],
         ['margem', () => fetchView('vw_margem_bruta_cultura')],
         ['resultado', () => fetchView('vw_resultado_gerencial_cultura')],
@@ -1109,6 +1011,12 @@ async function loadDashboard() {
         registerStaticDrillCoverage();
         bindDrilldownClicks();
         bindDecisionClicks();
+        initDreSubtabs(tab => {
+            selectedDreSubTab = tab;
+            const onDreTab = getCurrentTabId() === 'dre-gerencial';
+            renderDreGerencialTab(onDreTab && chartsReady.has('dre-gerencial'));
+            if (onDreTab) requestAnimationFrame(resizeVisibleCharts);
+        });
         setupChartResizeObserver();
         setupTabs();
         refreshChartsForTab('visao-geral');

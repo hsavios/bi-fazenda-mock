@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Filtros inteligentes em cascata — estado, engine e painel UI.
  */
 const STORAGE_KEY = 'bi-agro-filters-v1';
@@ -22,7 +22,7 @@ const TAB_FILTER_KEYS = {
     'visao-geral': ['safra', 'culturas', 'talhoes', 'meses', 'categorias', 'visao'],
     culturas: ['safra', 'culturas', 'talhoes', 'visao'],
     estoques: ['culturas', 'talhoes', 'categorias', 'visao'],
-    financeiro: ['safra', 'culturas', 'meses', 'categorias', 'visao'],
+    'dre-gerencial': ['safra', 'culturas', 'meses', 'categorias', 'visao'],
     comercializacao: ['safra', 'culturas', 'status', 'visao'],
     caixa: ['meses', 'categorias', 'visao'],
     operacoes: ['safra', 'culturas', 'talhoes', 'operacoes', 'categorias', 'visao'],
@@ -32,7 +32,8 @@ const TAB_FILTER_KEYS = {
 
 const STORE_KEYS = [
     'dre', 'margem', 'resultado', 'custoHa', 'comercial', 'produtividade',
-    'insumos', 'producao', 'fluxo', 'talhoes', 'maquinas', 'maoObra'
+    'insumos', 'producao', 'fluxo', 'talhoes', 'maquinas', 'maoObra',
+    'dreResumo', 'dreContabil', 'dreCulturaComp', 'balanceteGerencial', 'kpisContabeis', 'dreDrilldown'
 ];
 
 export function createEmptyFilterState() {
@@ -160,7 +161,13 @@ const DATASET_MAPPINGS = {
     fluxo: { mes: monthKeyFromRow, categoria: 'categoria' },
     talhoes: { safra: 'safra_codigo', cultura: 'cultura_nome', talhao: 'talhao_codigo' },
     maquinas: { safra: 'safra_codigo', categoria: 'categoria', operacao: 'equipamento_nome' },
-    maoObra: { safra: 'safra_codigo', operacao: r => r.colaborador_nome || r.equipe }
+    maoObra: { safra: 'safra_codigo', operacao: r => r.colaborador_nome || r.equipe },
+    dreResumo: { safra: 'safra_codigo', cultura: 'cultura_nome', mes: monthKeyFromRow },
+    dreContabil: { safra: 'safra_codigo', cultura: 'cultura_nome', mes: monthKeyFromRow, categoria: 'grupo_dre' },
+    dreCulturaComp: { safra: 'safra_codigo', cultura: 'cultura_nome' },
+    balanceteGerencial: { mes: monthKeyFromRow, categoria: 'grupo_dre' },
+    kpisContabeis: { safra: 'safra_codigo', mes: monthKeyFromRow },
+    dreDrilldown: { safra: 'safra_codigo', cultura: 'cultura_nome', mes: monthKeyFromRow, categoria: 'grupo_dre' }
 };
 
 function filterPool(store, partialState) {
@@ -197,7 +204,7 @@ export function buildFilterOptions(store, draftState = createEmptyFilterState())
         ),
         meses: uniqueSorted([
             ...collect([allPools.fluxo], monthKeyFromRow),
-            ...collect([allPools.dre], monthKeyFromRow)
+            ...collect([allPools.dre, allPools.dreResumo], monthKeyFromRow)
         ]).map(key => ({ key, label: monthLabel(key) })),
         categorias: collect(
             [allPools.insumos, allPools.maquinas, allPools.fluxo],
@@ -305,7 +312,7 @@ export function isStoreEmptyForTab(tabId, filteredStore) {
         'visao-geral': () => !(filteredStore.dre?.length || filteredStore.talhoes?.length),
         culturas: () => !filteredStore.resultado?.length && !filteredStore.dre?.length,
         estoques: () => !filteredStore.insumos?.length && !filteredStore.producao?.length,
-        financeiro: () => !filteredStore.dre?.length,
+        'dre-gerencial': () => !filteredStore.dreResumo?.length && !filteredStore.dreContabil?.length,
         comercializacao: () => !filteredStore.comercial?.length,
         caixa: () => !filteredStore.fluxo?.length,
         operacoes: () => !filteredStore.talhoes?.length && !filteredStore.maquinas?.length,
@@ -665,7 +672,7 @@ export function initFilters({
         if (visao && switchTab) {
             const map = {
                 producao: 'culturas',
-                financeiro: 'financeiro',
+                'dre-gerencial': 'dre-gerencial',
                 comercializacao: 'comercializacao',
                 operacoes: 'operacoes',
                 estoque: 'estoques'

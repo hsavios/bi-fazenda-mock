@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Perguntas do Gestor — respostas derivadas das views KPI já carregadas.
  */
 import {
@@ -7,8 +7,8 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=4.9';
-import { aggregateDreByCulture } from './insights.js?v=4.9';
+} from './api.js?v=5.0';
+import { aggregateDreByCulture } from './insights.js?v=5.0';
 
 const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -17,7 +17,7 @@ const RELATED_TAB_LABELS = {
     caixa: 'Ver caixa',
     culturas: 'Ver culturas',
     operacoes: 'Ver operações',
-    financeiro: 'Ver financeiro'
+    'dre-gerencial': 'Ver DRE Gerencial'
 };
 
 function pctShare(value, total) {

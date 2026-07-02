@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --bg: #e8ede9;
     --bg-subtle: #f2f5f2;
     --surface: #ffffff;
@@ -575,6 +575,52 @@ body.filter-open { overflow: hidden; }
 
 .kpi-row--4 { grid-template-columns: repeat(2, 1fr); }
 .kpi-row--6 { grid-template-columns: repeat(2, 1fr); }
+.kpi-row--7 { grid-template-columns: repeat(2, 1fr); }
+
+.dre-subtabs {
+    display: flex;
+    gap: 0.35rem;
+    flex-shrink: 0;
+}
+
+.dre-subtab {
+    border: 1px solid var(--border-light);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.dre-subtab.active {
+    background: var(--accent-dark);
+    color: #fff;
+    border-color: var(--accent-dark);
+}
+
+.dre-bottom {
+    display: grid;
+    grid-template-columns: 1fr minmax(220px, 28%);
+    gap: var(--content-gap);
+    min-height: 0;
+    flex: 1;
+}
+
+.dre-indent {
+    padding-left: 1.25rem !important;
+    font-size: 0.78rem;
+}
+
+.dre-tree-group td {
+    background: #f6faf7;
+}
+
+@media (min-width: 900px) {
+    .kpi-row--7 { grid-template-columns: repeat(4, 1fr); }
+    .dre-bottom { grid-template-columns: 1fr minmax(240px, 26%); }
+}
 
 .kpi-card {
     background: var(--surface);
@@ -774,6 +820,7 @@ body.filter-open { overflow: hidden; }
 .cultures-layout,
 .stocks-layout,
 .finance-layout,
+.dre-gerencial-layout,
 .operations-layout {
     display: flex;
     flex-direction: column;
@@ -787,6 +834,9 @@ body.filter-open { overflow: hidden; }
 .stocks-charts,
 .finance-top,
 .finance-bottom,
+.dre-top,
+.dre-bottom,
+.dre-main,
 .stocks-bottom {
     display: flex;
     flex-direction: column;

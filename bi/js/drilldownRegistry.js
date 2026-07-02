@@ -35,19 +35,19 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=4.9';
+} from './api.js?v=5.0';
 import {
     aggregateDreByCulture,
     buildCultureInsights,
     buildStockInsights,
     buildTalhaoInsight
-} from './insights.js?v=4.9';
+} from './insights.js?v=5.0';
 import {
     buildDecisionDrilldown,
     buildCommercialSummary,
     aggregateCashByMonth
-} from './decisionQuestions.js?v=4.9';
-import { openDrilldown } from './drilldown.js?v=4.9';
+} from './decisionQuestions.js?v=5.0';
+import { openDrilldown } from './drilldown.js?v=5.0';
 
 const COVERAGE = [];
 
@@ -555,6 +555,150 @@ function buildCostConcentrationDrill(talhaoCodes, dataIndex, data) {
     };
 }
 
+function sumResumo(data, linha, cultura = 'Consolidado') {
+    return (data.dreResumo || [])
+        .filter(r => r.linha_dre === linha && (r.cultura_nome || 'Consolidado') === cultura)
+        .reduce((s, r) => s + Number(r.valor || 0), 0);
+}
+
+function buildDreLineDrill(label, data) {
+    const valor = sumResumo(data, label);
+    const contas = (data.dreContabil || [])
+        .filter(r => r.grupo_dre && label.toLowerCase().includes(r.grupo_dre.split(' ')[0].toLowerCase()))
+        .slice(0, 6);
+    const rows = (data.dreContabil || [])
+        .reduce((acc, r) => {
+            const k = r.subgrupo_dre || r.conta_nome;
+            if (!acc.find(x => x.label === k)) {
+                acc.push({ label: k, value: formatCurrencyCompact(r.valor), meta: r.grupo_dre });
+            }
+            return acc;
+        }, [])
+        .slice(0, 6);
+    return {
+        type: 'dreLine',
+        title: `DRE — ${label}`,
+        subtitle: 'Competência contábil · recorte filtrado',
+        metrics: [
+            { label: 'Linha DRE', value: label, highlight: true },
+            { label: 'Valor gerencial', value: formatCurrency(valor) }
+        ],
+        rows: rows.length ? rows : contas.map(r => ({
+            label: r.subgrupo_dre || r.conta_nome,
+            value: formatCurrencyCompact(r.valor),
+            meta: r.grupo_dre
+        })),
+        insight: {
+            title: 'Interpretação contábil',
+            text: `${label} totaliza ${formatCurrencyCompact(valor)} no recorte, derivado de lançamentos contábeis balanceados.`,
+            tone: valor >= 0 ? 'positive' : 'warn'
+        },
+        nextAction: 'Aprofunde por conta contábil ou lançamento na hierarquia da DRE.',
+        source: 'vw_dre_gerencial_resumo · vw_dre_gerencial_contabil'
+    };
+}
+
+function buildDreGroupDrill(grupo, conta, data) {
+    const rows = (data.dreContabil || []).filter(r =>
+        r.grupo_dre === grupo && (!conta || r.conta_codigo === conta)
+    );
+    const byConta = new Map();
+    rows.forEach(r => {
+        const k = r.conta_codigo;
+        byConta.set(k, (byConta.get(k) || 0) + Number(r.valor || 0));
+    });
+    const valor = rows.reduce((s, r) => s + Number(r.valor || 0), 0);
+    return {
+        type: 'dreGroup',
+        title: conta ? `Conta ${conta}` : `Grupo — ${grupo}`,
+        subtitle: 'Composição contábil por conta analítica',
+        metrics: [
+            { label: 'Grupo DRE', value: grupo },
+            { label: 'Valor consolidado', value: formatCurrency(valor), highlight: true }
+        ],
+        rows: [...byConta.entries()].map(([cod, v]) => {
+            const nome = rows.find(r => r.conta_codigo === cod)?.conta_nome || cod;
+            return { label: `${cod} · ${nome}`, value: formatCurrencyCompact(v) };
+        }),
+        insight: {
+            title: 'Investigação gerencial',
+            text: `O grupo "${grupo}" concentra ${formatCurrencyCompact(valor)} no recorte filtrado.`,
+            tone: 'info'
+        },
+        nextAction: 'Clique em uma conta para ver lançamentos contábeis relacionados.',
+        source: 'vw_dre_gerencial_contabil'
+    };
+}
+
+function buildAccountingAccountDrill(contaCodigo, data) {
+    const entries = (data.dreDrilldown || []).filter(r => r.conta_codigo === contaCodigo).slice(0, 10);
+    const nome = entries[0]?.conta_nome || contaCodigo;
+    const total = entries.reduce((s, e) => s + Number(e.valor_dre || 0), 0);
+    return {
+        type: 'accountingAccount',
+        title: `Conta ${contaCodigo}`,
+        subtitle: nome,
+        metrics: [
+            { label: 'Impacto na DRE', value: formatCurrency(total), highlight: true },
+            { label: 'Lançamentos', value: String(entries.length) }
+        ],
+        rows: entries.map(e => ({
+            label: e.data_lancamento,
+            value: formatCurrencyCompact(e.valor_dre),
+            meta: (e.historico || e.documento_origem || '').slice(0, 60)
+        })),
+        insight: {
+            title: 'Rastreabilidade',
+            text: 'Lançamentos derivados do razão contábil demonstrativo.',
+            tone: 'info'
+        },
+        nextAction: 'Confronte com balancete e comprovantes na próxima camada transacional.',
+        source: 'vw_dre_conta_drilldown'
+    };
+}
+
+function buildCultureDreDrill(cultura, data) {
+    const lines = ['Receita bruta', 'Receita líquida', 'Margem bruta', 'EBITDA', 'Resultado líquido gerencial'];
+    const comp = (data.dreCulturaComp || []).find(r => r.cultura_nome === cultura);
+    return {
+        type: 'cultureDre',
+        title: `DRE contábil — ${cultura}`,
+        subtitle: 'Visão por cultura · competência',
+        metrics: comp ? [
+            { label: 'Receita líquida', value: formatCurrency(comp.receita_liquida) },
+            { label: 'Margem bruta', value: formatCurrency(comp.margem_bruta) },
+            { label: 'Resultado líquido', value: formatCurrency(comp.resultado_liquido), highlight: true },
+            { label: 'Margem líquida', value: formatPct(comp.margem_liquida_pct) },
+            { label: 'Resultado / ha', value: comp.resultado_ha ? formatCurrency(comp.resultado_ha) : '—' },
+            { label: 'Resultado / sc', value: comp.resultado_sc ? formatCurrency(comp.resultado_sc) : '—' }
+        ] : [],
+        rows: lines.map(l => ({
+            label: l,
+            value: formatCurrencyCompact(sumResumo(data, l, cultura))
+        })),
+        insight: {
+            title: 'Leitura por cultura',
+            text: `${cultura} no recorte contábil demonstrativo.`,
+            tone: 'info'
+        },
+        nextAction: 'Compare com produtividade e comercialização nas abas Culturas e Comercialização.',
+        source: 'vw_dre_cultura_comparativo · vw_dre_gerencial_resumo'
+    };
+}
+
+function buildAccountingKpiDrill(kpiId, data) {
+    const map = {
+        'receita-liquida-contabil': 'Receita líquida',
+        'margem-bruta-contabil': 'Margem bruta',
+        'ebitda-contabil': 'EBITDA',
+        'resultado-liquido-contabil': 'Resultado líquido gerencial',
+        'margem-liquida-contabil': 'Resultado líquido gerencial'
+    };
+    const linha = map[kpiId];
+    if (!linha) return fallbackDrill(`KPI contábil — ${kpiId}`, { kpiId }, 'vw_kpis_contabeis');
+    return buildDreLineDrill(linha, data);
+}
+
 export function resolveDrilldown(type, context = {}) {
     const data = getDataFn();
     switch (type) {
@@ -584,6 +728,18 @@ export function resolveDrilldown(type, context = {}) {
         }
         case 'costConcentration':
             return buildCostConcentrationDrill(context.talhaoCodes, context.dataIndex, data);
+        case 'dreLine':
+            return buildDreLineDrill(context.label || context.linha, data);
+        case 'dreGroup':
+            return buildDreGroupDrill(context.grupo, context.conta, data);
+        case 'accountingAccount':
+            return buildAccountingAccountDrill(context.conta, data);
+        case 'accountingEntry':
+            return buildAccountingAccountDrill(context.conta || context.conta_codigo, data);
+        case 'accountingKpi':
+            return buildAccountingKpiDrill(context.kpiId, data);
+        case 'cultureDre':
+            return buildCultureDreDrill(context.cultura, data);
         case 'question': {
             const card = context.card;
             if (!card) return null;

@@ -1,13 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=4.9">
+    <link rel="stylesheet" href="css/styles.css?v=5.0">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=4.9"></script>
+    <script type="module" src="js/app.js?v=5.0"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -44,9 +44,9 @@
                 <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
                 <span class="tab-label">Estoques</span>
             </button>
-            <button type="button" class="tab" data-tab="financeiro">
-                <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-                <span class="tab-label">Financeiro</span>
+            <button type="button" class="tab" data-tab="dre-gerencial">
+                <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19h16"/><path d="M6 15V9"/><path d="M10 15V5"/><path d="M14 15v-4"/><path d="M18 15v-7"/></svg></span>
+                <span class="tab-label">DRE Gerencial</span>
             </button>
             <button type="button" class="tab" data-tab="comercializacao">
                 <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
@@ -174,33 +174,52 @@
                     </div>
                 </section>
 
-                <!-- Financeiro -->
-                <section id="financeiro" class="view-panel dashboard-section" data-view="financeiro">
-                    <div class="finance-layout">
+                <!-- DRE Gerencial -->
+                <section id="dre-gerencial" class="view-panel dashboard-section" data-view="dre-gerencial">
+                    <div class="dre-gerencial-layout">
                         <header class="view-head view-head--compact">
-                            <h2>Visão financeira executiva</h2>
-                            <p class="view-subtitle">DRE, resultado e composição de custos por cultura</p>
+                            <h2>DRE Gerencial Contábil</h2>
+                            <p class="view-subtitle">Demonstrativo por competência · lançamentos contábeis balanceados · distinto do fluxo de caixa</p>
                         </header>
-                        <div class="kpi-row kpi-row--4" id="kpi-financeiro"></div>
-                        <div class="finance-top">
-                            <div class="chart-card">
-                                <h3>Waterfall DRE consolidado</h3>
-                                <div class="chart-body"><div id="chart-waterfall-dre" class="chart"></div></div>
-                            </div>
-                            <div class="chart-card">
-                                <h3>Composição de custos por cultura</h3>
-                                <div class="chart-body"><div id="chart-custos-stack" class="chart"></div></div>
-                            </div>
+                        <div class="kpi-row kpi-row--7" id="kpi-dre-gerencial"></div>
+                        <div class="dre-subtabs" role="tablist" aria-label="Visões contábeis">
+                            <button type="button" class="dre-subtab active" data-dre-subtab="dre">DRE</button>
+                            <button type="button" class="dre-subtab" data-dre-subtab="balancete">Balancete</button>
+                            <button type="button" class="dre-subtab" data-dre-subtab="cultura">Cultura</button>
                         </div>
-                        <div class="finance-bottom">
-                            <div class="panel-scroll panel-scroll--dre">
-                                <h3 class="block-title">DRE gerencial por cultura</h3>
-                                <div id="cards-dre" class="compact-table-wrap"></div>
+                        <div class="dre-main">
+                            <div class="dre-subpanel" data-dre-subpanel="dre">
+                                <div class="dre-top">
+                                    <div class="chart-card">
+                                        <h3>Waterfall DRE gerencial</h3>
+                                        <p class="chart-desc">Receita → custos → despesas → resultado líquido</p>
+                                        <div class="chart-body"><div id="chart-dre-waterfall" class="chart"></div></div>
+                                    </div>
+                                </div>
+                                <div class="dre-bottom">
+                                    <div class="panel-scroll panel-scroll--dre">
+                                        <h3 class="block-title">DRE hierárquica (grupo → conta)</h3>
+                                        <div id="dre-hierarchy" class="compact-table-wrap"></div>
+                                    </div>
+                                    <aside class="insights-panel insights-panel--scroll">
+                                        <h3 class="insights-heading">Insights contábeis</h3>
+                                        <div id="insights-dre-gerencial" class="insights-list"></div>
+                                    </aside>
+                                </div>
                             </div>
-                            <aside class="insights-panel insights-panel--scroll">
-                                <h3 class="insights-heading">Leitura financeira</h3>
-                                <div id="insights-financeiro" class="insights-list"></div>
-                            </aside>
+                            <div class="dre-subpanel hidden" data-dre-subpanel="balancete">
+                                <div class="panel-scroll">
+                                    <h3 class="block-title">Balancete gerencial</h3>
+                                    <p class="chart-desc">Contas analíticas · débitos, créditos e saldo · clique para lançamentos</p>
+                                    <div id="dre-balancete" class="compact-table-wrap"></div>
+                                </div>
+                            </div>
+                            <div class="dre-subpanel hidden" data-dre-subpanel="cultura">
+                                <div class="panel-scroll">
+                                    <h3 class="block-title">Comparativo DRE por cultura</h3>
+                                    <div id="dre-cultura-comp" class="compact-table-wrap"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
