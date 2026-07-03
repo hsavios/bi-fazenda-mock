@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="BI Agro — cockpit executivo com dados fictícios para demonstração comercial">
     <title>BI Agro — Fazenda Mock</title>
-    <link rel="stylesheet" href="css/styles.css?v=5.9">
+    <link rel="stylesheet" href="css/styles.css?v=5.10">
     <script src="vendor/echarts.min.js" defer></script>
-    <script type="module" src="js/app.js?v=5.9"></script>
+    <script type="module" src="js/app.js?v=5.10"></script>
 </head>
 <body>
     <div class="app-shell">
@@ -204,35 +204,61 @@
                                 </div>
                             </div>
                             <div class="dre-subpanel hidden" data-dre-subpanel="visualizacoes">
-                                <header class="dre-viz-head">
-                                    <h3 class="block-title">Visualizações Contábeis</h3>
-                                    <p class="chart-desc">Análises visuais derivadas da DRE por competência</p>
-                                </header>
-                                <div class="dre-viz-grid">
-                                    <div class="chart-card">
-                                        <h3>Waterfall DRE</h3>
-                                        <p class="chart-desc">Receita → custos → despesas → resultado</p>
-                                        <div class="chart-body"><div id="chart-dre-waterfall" class="chart chart--dre-wf"></div></div>
+                                <div class="visualizations-panel">
+                                    <header class="visualizations-panel__header">
+                                        <h3 class="block-title">Visualizações Contábeis</h3>
+                                        <p class="chart-desc">Análises visuais derivadas da DRE por competência</p>
+                                    </header>
+                                    <div class="visualizations-grid">
+                                        <div class="bi-chart-card dre-visual-waterfall">
+                                            <div class="bi-chart-card__header">
+                                                <h3>Waterfall DRE</h3>
+                                                <p>Receita → custos → despesas → resultado</p>
+                                            </div>
+                                            <div class="bi-chart-card__body bi-chart-card__body--lg">
+                                                <div id="chart-dre-waterfall" class="bi-chart bi-chart--lg chart"></div>
+                                            </div>
+                                            <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
+                                        </div>
+                                        <div class="bi-chart-card">
+                                            <div class="bi-chart-card__header">
+                                                <h3>Composição dos custos</h3>
+                                                <p>Grupos de despesa e CPV no recorte</p>
+                                            </div>
+                                            <div class="bi-chart-card__body">
+                                                <div id="chart-dre-custos" class="bi-chart bi-chart--md chart"></div>
+                                            </div>
+                                            <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
+                                        </div>
+                                        <div class="bi-chart-card">
+                                            <div class="bi-chart-card__header">
+                                                <h3>Resultado por cultura</h3>
+                                                <p>Resultado líquido contábil por cultura</p>
+                                            </div>
+                                            <div class="bi-chart-card__body">
+                                                <div id="chart-dre-resultado-cultura" class="bi-chart bi-chart--md chart"></div>
+                                            </div>
+                                            <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
+                                        </div>
+                                        <div class="bi-chart-card">
+                                            <div class="bi-chart-card__header">
+                                                <h3>Margem por cultura</h3>
+                                                <p>Margem líquida % por cultura</p>
+                                            </div>
+                                            <div class="bi-chart-card__body">
+                                                <div id="chart-dre-margem-cultura" class="bi-chart bi-chart--md chart"></div>
+                                            </div>
+                                            <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
+                                        </div>
+                                        <aside class="dre-viz-insights bi-chart-card bi-chart-card--insights">
+                                            <div class="bi-chart-card__header">
+                                                <h3>Insights contábeis</h3>
+                                            </div>
+                                            <div class="bi-chart-card__body bi-chart-card__body--insights">
+                                                <div id="insights-dre-visualizacoes" class="insights-list"></div>
+                                            </div>
+                                        </aside>
                                     </div>
-                                    <div class="chart-card">
-                                        <h3>Composição dos custos</h3>
-                                        <p class="chart-desc">Grupos de despesa e CPV no recorte</p>
-                                        <div class="chart-body"><div id="chart-dre-custos" class="chart"></div></div>
-                                    </div>
-                                    <div class="chart-card">
-                                        <h3>Resultado por cultura</h3>
-                                        <p class="chart-desc">Resultado líquido contábil por cultura</p>
-                                        <div class="chart-body"><div id="chart-dre-resultado-cultura" class="chart"></div></div>
-                                    </div>
-                                    <div class="chart-card">
-                                        <h3>Margem por cultura</h3>
-                                        <p class="chart-desc">Margem líquida % por cultura</p>
-                                        <div class="chart-body"><div id="chart-dre-margem-cultura" class="chart"></div></div>
-                                    </div>
-                                    <aside class="dre-viz-insights chart-card">
-                                        <h3 class="insights-heading">Insights contábeis</h3>
-                                        <div id="insights-dre-visualizacoes" class="insights-list"></div>
-                                    </aside>
                                 </div>
                             </div>
                             <div class="dre-subpanel hidden" data-dre-subpanel="balancete">
@@ -316,30 +342,51 @@
                                 </div>
                             </div>
                             <div class="cash-subpanel hidden" data-cash-subpanel="visualizacoes">
-                                <header class="cash-viz-head">
-                                    <h3 class="block-title">Visualizações de Caixa</h3>
-                                    <p class="chart-desc">Análises visuais de liquidez e pressão financeira</p>
-                                </header>
-                                <div class="cash-viz-grid">
-                                    <div class="chart-card">
-                                        <h3>Saldo acumulado</h3>
-                                        <p class="chart-desc">Evolução da liquidez na safra demonstrativa</p>
-                                        <div class="chart-body"><div id="chart-caixa-saldo" class="chart chart--cash"></div></div>
-                                    </div>
-                                    <div class="chart-card">
-                                        <h3>Entradas × Saídas</h3>
-                                        <p class="chart-desc">Comparativo mensal de fluxo realizado</p>
-                                        <div class="chart-body"><div id="chart-caixa-entradas-saidas" class="chart chart--cash"></div></div>
-                                    </div>
-                                    <div class="chart-card">
-                                        <h3>Pressão de caixa por mês</h3>
-                                        <p class="chart-desc">Meses com maior desequilíbrio entre saídas e entradas</p>
-                                        <div class="chart-body"><div id="chart-caixa-pressao" class="chart chart--cash"></div></div>
-                                    </div>
-                                    <div class="chart-card cash-viz-insights">
-                                        <h3>Insights de caixa</h3>
-                                        <p class="chart-desc">Leituras automáticas do período</p>
-                                        <div id="insights-caixa-viz" class="insights-list"></div>
+                                <div class="visualizations-panel">
+                                    <header class="visualizations-panel__header">
+                                        <h3 class="block-title">Visualizações de Caixa</h3>
+                                        <p class="chart-desc">Análises visuais de liquidez e pressão financeira</p>
+                                    </header>
+                                    <div class="visualizations-grid">
+                                        <div class="bi-chart-card">
+                                            <div class="bi-chart-card__header">
+                                                <h3>Saldo acumulado</h3>
+                                                <p>Evolução da liquidez na safra demonstrativa</p>
+                                            </div>
+                                            <div class="bi-chart-card__body">
+                                                <div id="chart-caixa-saldo" class="bi-chart bi-chart--md chart"></div>
+                                            </div>
+                                            <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
+                                        </div>
+                                        <div class="bi-chart-card">
+                                            <div class="bi-chart-card__header">
+                                                <h3>Entradas × Saídas</h3>
+                                                <p>Comparativo mensal de fluxo realizado</p>
+                                            </div>
+                                            <div class="bi-chart-card__body">
+                                                <div id="chart-caixa-entradas-saidas" class="bi-chart bi-chart--md chart"></div>
+                                            </div>
+                                            <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
+                                        </div>
+                                        <div class="bi-chart-card">
+                                            <div class="bi-chart-card__header">
+                                                <h3>Pressão de caixa por mês</h3>
+                                                <p>Meses com maior desequilíbrio entre saídas e entradas</p>
+                                            </div>
+                                            <div class="bi-chart-card__body">
+                                                <div id="chart-caixa-pressao" class="bi-chart bi-chart--md chart"></div>
+                                            </div>
+                                            <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
+                                        </div>
+                                        <aside class="cash-viz-insights bi-chart-card bi-chart-card--insights">
+                                            <div class="bi-chart-card__header">
+                                                <h3>Insights de caixa</h3>
+                                                <p>Leituras automáticas do período</p>
+                                            </div>
+                                            <div class="bi-chart-card__body bi-chart-card__body--insights">
+                                                <div id="insights-caixa-viz" class="insights-list"></div>
+                                            </div>
+                                        </aside>
                                     </div>
                                 </div>
                             </div>
@@ -387,59 +434,59 @@
                                 </div>
                             </div>
                             <div class="field-subpanel hidden" data-field-subpanel="visualizacoes">
-                                <div class="operations-visualizations-view">
-                                    <header class="operations-visualizations-header">
+                                <div class="operations-visualizations-view visualizations-panel">
+                                    <header class="operations-visualizations-header visualizations-panel__header">
                                         <h3 class="block-title">Visualizações da Safra</h3>
                                         <p class="chart-desc">Análises visuais de produtividade, custo e ganho/perda</p>
                                     </header>
-                                    <div class="operations-visual-grid">
-                                        <div class="bi-chart-card bi-chart-card--viz">
+                                    <div class="operations-visual-grid visualizations-grid">
+                                        <div class="bi-chart-card">
                                             <div class="bi-chart-card__header">
                                                 <h3>Produtividade × Custo/ha</h3>
                                                 <p>Bolha = resultado · cor = positivo/negativo</p>
                                             </div>
                                             <div class="bi-chart-card__body">
-                                                <div id="chart-scatter-prod-custo" class="bi-chart bi-chart--viz chart"></div>
+                                                <div id="chart-scatter-prod-custo" class="bi-chart bi-chart--md chart"></div>
                                             </div>
                                             <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                         </div>
-                                        <div class="bi-chart-card bi-chart-card--viz">
+                                        <div class="bi-chart-card">
                                             <div class="bi-chart-card__header">
                                                 <h3>Ganho/perda vs média da cultura</h3>
                                                 <p>Impacto econômico estimado por produtividade</p>
                                             </div>
                                             <div class="bi-chart-card__body">
-                                                <div id="chart-ganho-perda" class="bi-chart bi-chart--viz chart"></div>
+                                                <div id="chart-ganho-perda" class="bi-chart bi-chart--md chart"></div>
                                             </div>
                                             <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                         </div>
-                                        <div class="bi-chart-card bi-chart-card--viz">
+                                        <div class="bi-chart-card">
                                             <div class="bi-chart-card__header">
                                                 <h3>Pareto de custos por talhão</h3>
                                                 <p>Top 8 · concentração acumulada</p>
                                             </div>
                                             <div class="bi-chart-card__body">
-                                                <div id="chart-pareto-talhao" class="bi-chart bi-chart--viz chart"></div>
+                                                <div id="chart-pareto-talhao" class="bi-chart bi-chart--md chart"></div>
                                             </div>
                                             <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                         </div>
-                                        <div class="bi-chart-card bi-chart-card--viz">
+                                        <div class="bi-chart-card">
                                             <div class="bi-chart-card__header">
                                                 <h3>Heatmap talhão × cultura</h3>
                                                 <p>Intensidade de custo/ha operacional</p>
                                             </div>
                                             <div class="bi-chart-card__body">
-                                                <div id="chart-heatmap-talhao" class="bi-chart bi-chart--viz chart"></div>
+                                                <div id="chart-heatmap-talhao" class="bi-chart bi-chart--md chart"></div>
                                             </div>
                                             <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                         </div>
-                                        <div class="bi-chart-card bi-chart-card--viz">
+                                        <div class="bi-chart-card">
                                             <div class="bi-chart-card__header">
                                                 <h3>Ranking de resultado por talhão</h3>
                                                 <p>Top 8 talhões por resultado estimado</p>
                                             </div>
                                             <div class="bi-chart-card__body">
-                                                <div id="chart-ranking-talhao" class="bi-chart bi-chart--viz chart"></div>
+                                                <div id="chart-ranking-talhao" class="bi-chart bi-chart--md chart"></div>
                                             </div>
                                             <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                         </div>
@@ -459,24 +506,24 @@
                                     <details class="machine-visuals-accordion" id="field-maquinas-viz-accordion">
                                         <summary>Ver visualizações de máquinas</summary>
                                         <div class="machine-visuals-panel">
-                                            <div class="machine-visuals-grid">
-                                                <div class="bi-chart-card bi-chart-card--viz">
+                                            <div class="machine-visuals-grid visualizations-grid">
+                                                <div class="bi-chart-card">
                                                     <div class="bi-chart-card__header">
                                                         <h3>Horas × Custo por máquina</h3>
                                                         <p>Top equipamentos da safra · barras = custo · linha = horas</p>
                                                     </div>
                                                     <div class="bi-chart-card__body">
-                                                        <div id="chart-maquinas-viz" class="bi-chart bi-chart--viz chart"></div>
+                                                        <div id="chart-maquinas-viz" class="bi-chart bi-chart--md chart"></div>
                                                     </div>
                                                     <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                                 </div>
-                                                <div class="bi-chart-card bi-chart-card--viz">
+                                                <div class="bi-chart-card">
                                                     <div class="bi-chart-card__header">
                                                         <h3>Ranking custo/hora</h3>
                                                         <p>Comparativo por equipamento</p>
                                                     </div>
                                                     <div class="bi-chart-card__body">
-                                                        <div id="chart-maquinas-custo-hora" class="bi-chart bi-chart--viz chart"></div>
+                                                        <div id="chart-maquinas-custo-hora" class="bi-chart bi-chart--md chart"></div>
                                                     </div>
                                                     <div class="bi-chart-card__footer">Clique nos elementos para detalhar</div>
                                                 </div>

@@ -1,17 +1,17 @@
-/**
+﻿/**
  * Caixa — demonstrativo (matriz), visualizações e movimentos.
  */
 import {
     formatCurrency,
     formatCurrencyCompact
-} from './api.js?v=5.5';
+} from './api.js?v=5.10';
 import {
     aggregateCashByMonth,
     renderCashStatementMatrix,
     renderCashMovementsTable,
     renderCashMobilePanel
-} from './cashFlow.js?v=5.5';
-import { renderCaixaVisualizacoes } from './caixaVisualizacoes.js?v=5.5';
+} from './cashFlow.js?v=5.10';
+import { renderCaixaVisualizacoes } from './caixaVisualizacoes.js?v=5.10';
 
 function renderFilterBreadcrumb(container, filterContext) {
     if (!container) return;
@@ -66,10 +66,19 @@ export function renderCaixaGerencial({
     drawChart = false,
     filterContext = '',
     selectedMonthKey = null,
-    onMonthKeyChange = null
+    onMonthKeyChange = null,
+    onChartsReady = null
 }) {
     const fluxo = store.fluxo || [];
     const months = aggregateCashByMonth(fluxo);
+
+    document.querySelectorAll('.cash-segment').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.cashSubtab === subTab);
+        btn.setAttribute('aria-selected', btn.dataset.cashSubtab === subTab ? 'true' : 'false');
+    });
+    document.querySelectorAll('.cash-subpanel').forEach(panel => {
+        panel.classList.toggle('hidden', panel.dataset.cashSubpanel !== subTab);
+    });
 
     renderFilterBreadcrumb(document.getElementById('cash-filter-breadcrumb'), filterContext);
     renderCompactKpis(document.getElementById('kpi-caixa'), months, onDrill);
@@ -85,14 +94,36 @@ export function renderCaixaGerencial({
         movement => onDrill?.('cashMovement', { movement })
     );
 
-    renderCaixaVisualizacoes({
-        months,
-        fluxo,
-        charts,
-        setChart,
-        onDrill,
-        drawChart: drawChart && subTab === 'visualizacoes'
-    });
+    const shouldDrawCharts = drawChart && subTab === 'visualizacoes';
+    const paintCharts = () => {
+        renderCaixaVisualizacoes({
+            months,
+            fluxo,
+            charts,
+            setChart,
+            onDrill,
+            drawChart: true
+        });
+        requestAnimationFrame(() => {
+            onChartsReady?.();
+            if (shouldDrawCharts) {
+                setTimeout(() => onChartsReady?.(), 150);
+            }
+        });
+    };
+
+    if (shouldDrawCharts) {
+        requestAnimationFrame(() => requestAnimationFrame(paintCharts));
+    } else {
+        renderCaixaVisualizacoes({
+            months,
+            fluxo,
+            charts,
+            setChart,
+            onDrill,
+            drawChart: false
+        });
+    }
 
     const mobileKey = selectedMonthKey || months[0]?.monthKey;
     if (mobileKey && onMonthKeyChange) {
@@ -105,14 +136,6 @@ export function renderCaixaGerencial({
         mobileKey,
         ctx => onDrill?.('cashMatrixCell', ctx)
     );
-
-    document.querySelectorAll('.cash-segment').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.cashSubtab === subTab);
-        btn.setAttribute('aria-selected', btn.dataset.cashSubtab === subTab ? 'true' : 'false');
-    });
-    document.querySelectorAll('.cash-subpanel').forEach(panel => {
-        panel.classList.toggle('hidden', panel.dataset.cashSubpanel !== subTab);
-    });
 }
 
 export function setupCashMobileSelect(months, selectedKey, onChange) {

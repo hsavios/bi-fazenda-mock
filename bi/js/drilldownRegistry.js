@@ -62,7 +62,8 @@ import {
     buildTalhaoPerformanceModel,
     getTalhaoPerformanceRow
 } from './fieldPerformance.js?v=5.5';
-import { openDrilldown } from './drilldown.js?v=5.5';
+import { openDrilldown } from './drilldown.js?v=5.10';
+import { scheduleChartResize, resizeVisibleCharts } from './chartResize.js?v=5.10';
 
 const COVERAGE = [];
 
@@ -1092,7 +1093,8 @@ export function openDataDrilldown(opts) {
         source: final.source,
         filterContext: getFilterContextFn()
             ? `${getFilterContextFn()} · Exibindo detalhes dentro do recorte filtrado.`
-            : 'Visão consolidada · Toda a fazenda.'
+            : 'Visão consolidada · Toda a fazenda.',
+        onOpen: () => scheduleChartResize(resizeVisibleCharts)
     });
 }
 

@@ -1,7 +1,7 @@
 ﻿/**
  * Builders ECharts — visualizações avançadas do cockpit.
  */
-import { formatCurrency, formatNumber, formatPct } from './api.js?v=5.8';
+import { formatCurrency, formatNumber, formatPct } from './api.js?v=5.10';
 
 export const CHART_COLORS = {
     primary: '#2d6a4f',
@@ -18,11 +18,12 @@ export const CHART_COLORS = {
 export const CHART_PALETTE = ['#2d6a4f', '#40916c', '#52b788', '#b8860b', '#74c69d', '#c0392b'];
 
 export const CHART_GRIDS = {
-    vertical: { left: 56, right: 28, top: 34, bottom: 52, containLabel: true },
-    horizontal: { left: 120, right: 28, top: 30, bottom: 42, containLabel: true },
-    scatter: { left: 72, right: 28, top: 34, bottom: 58, containLabel: true },
-    heatmap: { left: 80, right: 30, top: 30, bottom: 58, containLabel: true },
-    pareto: { left: 56, right: 48, top: 34, bottom: 56, containLabel: true }
+    vertical: { left: 64, right: 36, top: 42, bottom: 62, containLabel: true },
+    horizontal: { left: 130, right: 42, top: 36, bottom: 48, containLabel: true },
+    scatter: { left: 78, right: 38, top: 42, bottom: 68, containLabel: true },
+    heatmap: { left: 90, right: 42, top: 38, bottom: 70, containLabel: true },
+    pareto: { left: 64, right: 48, top: 42, bottom: 62, containLabel: true },
+    combo: { left: 70, right: 70, top: 42, bottom: 68, containLabel: true }
 };
 
 const baseGrid = CHART_GRIDS.vertical;

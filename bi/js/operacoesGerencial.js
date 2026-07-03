@@ -7,8 +7,8 @@ import {
     buildFieldPerformanceKpis,
     renderFieldPerformanceTable
 } from './fieldPerformance.js?v=5.6';
-import { renderOperacoesVisualizacoes } from './operacoesVisualizacoes.js?v=5.8';
-import { renderOperacoesMaquinas, isMaquinasVizOpen, initMaquinasAccordionDefault } from './operacoesMaquinas.js?v=5.9';
+import { renderOperacoesVisualizacoes } from './operacoesVisualizacoes.js?v=5.10';
+import { renderOperacoesMaquinas, isMaquinasVizOpen, initMaquinasAccordionDefault } from './operacoesMaquinas.js?v=5.10';
 import { renderOperacoesApontamentos } from './operacoesApontamentos.js?v=5.6';
 import { renderInsightCards } from './insights.js?v=5.6';
 

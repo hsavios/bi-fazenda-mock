@@ -7,8 +7,8 @@ import {
     formatNumber,
     formatPct,
     sumField
-} from './api.js?v=5.9';
-import { horizontalBarOption, comboBarLineOption } from './charts.js?v=5.9';
+} from './api.js?v=5.10';
+import { horizontalBarOption, comboBarLineOption } from './charts.js?v=5.10';
 
 const GRIDS = {
     combo: { left: 72, right: 64, top: 38, bottom: 72, containLabel: true },

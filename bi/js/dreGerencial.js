@@ -1,14 +1,14 @@
-/**
+﻿/**
  * DRE Gerencial Contábil — demonstrativo formal + subtabs.
  */
 import {
     formatCurrency,
     formatCurrencyCompact,
     formatPct
-} from './api.js?v=5.5';
-import { buildExplorerModel, renderDreExplorer, resetExplorerState } from './dreExplorer.js?v=5.5';
-import { renderPremiumBalancete, renderPremiumCultura } from './drePanels.js?v=5.5';
-import { renderDreVisualizacoes } from './dreVisualizacoes.js?v=5.5';
+} from './api.js?v=5.10';
+import { buildExplorerModel, renderDreExplorer, resetExplorerState } from './dreExplorer.js?v=5.10';
+import { renderPremiumBalancete, renderPremiumCultura } from './drePanels.js?v=5.10';
+import { renderDreVisualizacoes } from './dreVisualizacoes.js?v=5.10';
 
 const CONSOLIDADO = 'Consolidado';
 
@@ -163,7 +163,8 @@ export function renderDreGerencial({
     onDrill,
     subTab = 'demonstrativo',
     drawChart = false,
-    filterContext = ''
+    filterContext = '',
+    onChartsReady = null
 }) {
     const data = filterDreData(store, filterState);
     const lines = aggregateResumo(data.dreResumo, CONSOLIDADO);
@@ -174,6 +175,14 @@ export function renderDreGerencial({
         kpis.resHa = Number(k.resultado_por_ha || 0);
         kpis.resSc = Number(k.resultado_por_sc || 0);
     }
+
+    document.querySelectorAll('.dre-segment').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.dreSubtab === subTab);
+        btn.setAttribute('aria-selected', btn.dataset.dreSubtab === subTab ? 'true' : 'false');
+    });
+    document.querySelectorAll('.dre-subpanel').forEach(panel => {
+        panel.classList.toggle('hidden', panel.dataset.dreSubpanel !== subTab);
+    });
 
     renderFilterBreadcrumb(document.getElementById('dre-filter-breadcrumb'), filterContext);
     renderPremiumKpis(document.getElementById('kpi-dre-gerencial'), kpis, onDrill);
@@ -189,22 +198,36 @@ export function renderDreGerencial({
     renderPremiumBalancete(document.getElementById('dre-balancete'), data.balanceteGerencial, onDrill);
     renderPremiumCultura(document.getElementById('dre-cultura-comp'), data.dreCulturaComp, onDrill);
 
-    renderDreVisualizacoes({
-        lines,
-        data,
-        charts,
-        setChart,
-        onDrill,
-        drawChart: drawChart && subTab === 'visualizacoes'
-    });
+    const shouldDrawCharts = drawChart && subTab === 'visualizacoes';
+    const paintCharts = () => {
+        renderDreVisualizacoes({
+            lines,
+            data,
+            charts,
+            setChart,
+            onDrill,
+            drawChart: true
+        });
+        requestAnimationFrame(() => {
+            onChartsReady?.();
+            if (shouldDrawCharts) {
+                setTimeout(() => onChartsReady?.(), 150);
+            }
+        });
+    };
 
-    document.querySelectorAll('.dre-segment').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.dreSubtab === subTab);
-        btn.setAttribute('aria-selected', btn.dataset.dreSubtab === subTab ? 'true' : 'false');
-    });
-    document.querySelectorAll('.dre-subpanel').forEach(panel => {
-        panel.classList.toggle('hidden', panel.dataset.dreSubpanel !== subTab);
-    });
+    if (shouldDrawCharts) {
+        requestAnimationFrame(() => requestAnimationFrame(paintCharts));
+    } else {
+        renderDreVisualizacoes({
+            lines,
+            data,
+            charts,
+            setChart,
+            onDrill,
+            drawChart: false
+        });
+    }
 
     const skeleton = document.getElementById('dre-explorer-skeleton');
     if (skeleton) skeleton.classList.add('hidden');

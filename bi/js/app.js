@@ -5,13 +5,13 @@
     formatCurrencyCompact,
     formatPct,
     sumField
-} from './api.js?v=5.8';
+} from './api.js?v=5.10';
 import {
     aggregateDreByCulture,
     buildExecutiveInsights,
     buildStockPanelInsights,
     renderInsightCards
-} from './insights.js?v=5.8';
+} from './insights.js?v=5.10';
 import {
     buildDecisionQuestions,
     buildCommercialSummary,
@@ -19,20 +19,26 @@ import {
     renderDecisionCards,
     renderSelectedQuestionPanel,
     renderCommercialTable
-} from './decisionQuestions.js?v=5.8';
-import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.8';
-import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.8';
-import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.8';
-import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.8';
-import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.9';
+} from './decisionQuestions.js?v=5.10';
+import { initDrilldown, closeDrilldown } from './drilldown.js?v=5.10';
+import { initDrilldownRegistry, openDrill, registerDrillCoverage } from './drilldownRegistry.js?v=5.10';
+import { renderDreGerencial, initDreSubtabs } from './dreGerencial.js?v=5.10';
+import { renderCaixaGerencial, initCaixaSubtabs, setupCashMobileSelect } from './caixaGerencial.js?v=5.10';
+import { renderOperacoesGerencial, initOperacoesSubtabs, initMaquinasVizAccordion } from './operacoesGerencial.js?v=5.10';
 import {
     registerBiChart,
     unregisterBiChart,
+    isChartNodeVisible,
+    syncChartDomSize,
     resizeVisibleCharts,
     scheduleChartResize,
-    installChartDebugGlobals
-} from './chartResize.js?v=5.8';
-import { aggregateCashByMonth } from './cashFlow.js?v=5.8';
+    installChartDebugGlobals,
+    observeChartNode,
+    observeChartContainers,
+    setupBiChartResizeObserver,
+    setupViewportResizeListeners
+} from './chartResize.js?v=5.10';
+import { aggregateCashByMonth } from './cashFlow.js?v=5.10';
 import {
     CHART_COLORS,
     waterfallOption,
@@ -44,7 +50,7 @@ import {
     heatmapOption,
     lineAreaOption,
     comboBarLineOption
-} from './charts.js?v=5.8';
+} from './charts.js?v=5.10';
 import {
     initFilters,
     loadFilterState,
@@ -56,11 +62,10 @@ import {
     tabHasPartialFilters,
     isStoreEmptyForTab,
     countActiveFilters
-} from './filters.js?v=5.8';
+} from './filters.js?v=5.10';
 
 const charts = {};
 const chartsReady = new Set();
-let chartResizeObserver = null;
 let decisionCards = [];
 let selectedDecisionId = null;
 let selectedCashMonthKey = null;
@@ -119,22 +124,40 @@ function el(id) {
 function initChart(id) {
     const node = el(id);
     if (!node || typeof echarts === 'undefined') return null;
+    if (!isChartNodeVisible(node)) return charts[id] || null;
+
     if (charts[id]) {
         unregisterBiChart(charts[id]);
         charts[id].dispose();
+        delete node.__echartsInstance__;
     }
     charts[id] = echarts.init(node);
+    node.__echartsInstance__ = charts[id];
     registerBiChart(charts[id]);
+    observeChartNode(node);
     return charts[id];
 }
 
 function setChart(id, option) {
-    const chart = initChart(id);
-    if (chart) {
-        chart.setOption(option, true);
-        scheduleChartResize(resizeVisibleCharts);
+    const node = el(id);
+    if (!node) return null;
+
+    const paint = () => {
+        const chart = initChart(id);
+        if (chart) {
+            chart.setOption(option, true);
+            syncChartDomSize(chart);
+            scheduleChartResize(resizeVisibleCharts);
+        }
+    };
+
+    if (!isChartNodeVisible(node)) {
+        requestAnimationFrame(() => requestAnimationFrame(paint));
+        return charts[id] || null;
     }
-    return chart;
+
+    paint();
+    return charts[id] || null;
 }
 
 function bindChartDrill(chartId, handler, coverage) {
@@ -152,22 +175,8 @@ function resizeCharts() {
 }
 
 function setupChartResizeObserver() {
-    if (chartResizeObserver || typeof ResizeObserver === 'undefined') return;
-    chartResizeObserver = new ResizeObserver(() => {
-        scheduleChartResize(resizeVisibleCharts);
-    });
+    setupBiChartResizeObserver(resizeVisibleCharts);
     observeChartContainers();
-}
-
-function observeChartContainers() {
-    if (!chartResizeObserver) return;
-    document.querySelectorAll(
-        '.chart-body, .bi-chart-card__body, .chart-card-body, .bi-chart-card, .operations-visualizations-view, .machine-visuals-panel'
-    ).forEach(node => {
-        if (node.dataset.resizeObserved) return;
-        node.dataset.resizeObserved = '1';
-        chartResizeObserver.observe(node);
-    });
 }
 
 function sortCultures(names) {
@@ -494,7 +503,11 @@ function renderCaixaTab(drawChart = false) {
         subTab: selectedCaixaSubTab,
         drawChart,
         filterContext: getFilterContextLabel(filterState),
-        selectedMonthKey: selectedCashMonthKey
+        selectedMonthKey: selectedCashMonthKey,
+        onChartsReady: () => {
+            scheduleChartResize(resizeVisibleCharts);
+            setTimeout(() => scheduleChartResize(resizeVisibleCharts), 150);
+        }
     });
 }
 
@@ -740,7 +753,11 @@ function renderDreGerencialTab(drawChart = false) {
         onDrill: (type, context) => openDrill(type, context),
         subTab: selectedDreSubTab,
         drawChart,
-        filterContext: getFilterContextLabel(filterState)
+        filterContext: getFilterContextLabel(filterState),
+        onChartsReady: () => {
+            scheduleChartResize(resizeVisibleCharts);
+            setTimeout(() => scheduleChartResize(resizeVisibleCharts), 150);
+        }
     });
 }
 
@@ -755,7 +772,10 @@ function renderOperacoesTab(drawChart = false) {
         subTab: selectedOperacoesSubTab,
         drawChart,
         filterContext: getFilterContextLabel(filterState),
-        onChartsReady: () => scheduleChartResize(resizeVisibleCharts)
+        onChartsReady: () => {
+            scheduleChartResize(resizeVisibleCharts);
+            observeChartContainers();
+        }
     });
     observeChartContainers();
 }
@@ -805,6 +825,7 @@ function refreshChartsForTab(tabId) {
                 break;
         }
         chartsReady.add(tabId);
+        observeChartContainers();
         requestAnimationFrame(() => {
             resizeVisibleCharts();
             requestAnimationFrame(resizeVisibleCharts);
@@ -934,7 +955,9 @@ async function loadDashboard() {
                 rerenderDashboard();
             },
             getActiveTab: getCurrentTabId,
-            switchTab
+            switchTab,
+            onPanelOpen: () => scheduleChartResize(resizeVisibleCharts),
+            onPanelClose: () => scheduleChartResize(resizeVisibleCharts)
         });
 
         document.getElementById('filter-clear-inline')?.addEventListener('click', () => {
@@ -989,6 +1012,7 @@ async function loadDashboard() {
             }
         });
         setupChartResizeObserver();
+        setupViewportResizeListeners(resizeVisibleCharts);
         setupTabs();
         refreshChartsForTab('visao-geral');
     } catch (err) {

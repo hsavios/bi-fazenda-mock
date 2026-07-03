@@ -6,13 +6,13 @@ import {
     formatCurrencyCompact,
     formatNumber,
     formatPct
-} from './api.js?v=5.8';
+} from './api.js?v=5.10';
 import {
     paretoOption,
     horizontalBarOption,
     heatmapOption
-} from './charts.js?v=5.8';
-import { CHART_COLORS } from './charts.js?v=5.8';
+} from './charts.js?v=5.10';
+import { CHART_COLORS } from './charts.js?v=5.10';
 
 const GRIDS = {
     scatter: { left: 76, right: 30, top: 36, bottom: 60, containLabel: true },

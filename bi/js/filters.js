@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Filtros inteligentes em cascata — estado, engine e painel UI.
  */
 const STORAGE_KEY = 'bi-agro-filters-v1';
@@ -463,7 +463,9 @@ export function initFilters({
     onApply,
     onClear,
     getActiveTab,
-    switchTab
+    switchTab,
+    onPanelOpen = null,
+    onPanelClose = null
 }) {
     const drawer = document.getElementById('filter-drawer');
     const backdrop = document.getElementById('filter-backdrop');
@@ -648,6 +650,7 @@ export function initFilters({
         drawer?.classList.add('open');
         drawer?.setAttribute('aria-hidden', 'false');
         document.body.classList.add('filter-open');
+        onPanelOpen?.();
     }
 
     function closePanel() {
@@ -655,6 +658,7 @@ export function initFilters({
         drawer?.classList.remove('open');
         drawer?.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('filter-open');
+        onPanelClose?.();
     }
 
     openBtn?.addEventListener('click', openPanel);
